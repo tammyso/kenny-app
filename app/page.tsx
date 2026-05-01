@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import SignOutButton from "./sign-out-button";
 
 type Inquiry = {
   id: string;
@@ -22,6 +24,16 @@ const displayDate = (value: string | null) => {
 };
 
 export default async function Home() {
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data, error } = await supabase
     .from("inquiries")
     .select(
@@ -42,12 +54,15 @@ export default async function Home() {
               : `Showing ${inquiries.length} submissions.`}
           </p>
         </div>
-        <a
-          href="/submit"
-          className="inline-flex h-10 items-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700"
-        >
-          New Inquiry
-        </a>
+        <div className="flex items-center gap-3">
+          <a
+            href="/submit"
+            className="inline-flex h-10 items-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700"
+          >
+            New Inquiry
+          </a>
+          <SignOutButton />
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">

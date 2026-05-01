@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { FormEvent, useMemo, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type FormState = {
   client_name: string;
@@ -31,6 +31,7 @@ const initialFormState: FormState = {
 };
 
 export default function SubmitInquiryPage() {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
