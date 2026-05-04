@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { generateDraft, saveDraft, trashDraft } from "./actions";
+import { generateDraft, saveDraft, sendDraft, trashDraft } from "./actions";
 
 export type InquiryRowData = {
   id: string;
@@ -16,6 +16,7 @@ export type InquiryRowData = {
   draft_reply: string | null;
   draft_status: string | null;
   draft_generated_at: string | null;
+  sent_at: string | null;
 };
 
 const displayDate = (value: string | null) => {
@@ -26,10 +27,11 @@ const displayDate = (value: string | null) => {
 };
 
 export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
-  const hasDraft = inquiry.draft_status === "ready_to_send";
+  const isReady = inquiry.draft_status === "ready_to_send";
+  const isSent = inquiry.draft_status === "sent";
   const isTrashed = inquiry.draft_status === "trashed";
 
-  const [isExpanded, setIsExpanded] = useState(hasDraft);
+  const [isExpanded, setIsExpanded] = useState(isReady);
   const [draftBody, setDraftBody] = useState(inquiry.draft_reply ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,8 +56,12 @@ export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
     runAction(() => generateDraft(inquiry.id));
   };
 
-  const handleSave = () =>
-    runAction(() => saveDraft(inquiry.id, draftBody));
+  const handleSave = () => runAction(() => saveDraft(inquiry.id, draftBody));
+
+  const handleSend = () => {
+    if (!confirm(`Send this reply to ${inquiry.client_email}?`)) return;
+    runAction(() => sendDraft(inquiry.id, draftBody));
+  };
 
   const handleTrash = () => runAction(() => trashDraft(inquiry.id));
 
@@ -83,7 +89,20 @@ export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
         </td>
         <td className="px-4 py-3 text-zinc-700">{inquiry.status || "new"}</td>
         <td className="px-4 py-3">
-          {hasDraft ? (
+          {isSent ? (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                Sent
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
+              >
+                {isExpanded ? "Hide" : "View"}
+              </button>
+            </div>
+          ) : isReady ? (
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
                 Ready
@@ -127,16 +146,26 @@ export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                  AI draft reply to {inquiry.client_name}
+                  {isSent
+                    ? `Sent reply to ${inquiry.client_name}`
+                    : `AI draft reply to ${inquiry.client_name}`}
                 </p>
-                {inquiry.draft_generated_at && (
+                {isSent && inquiry.sent_at ? (
+                  <p className="text-xs text-zinc-500">
+                    Sent {new Date(inquiry.sent_at).toLocaleString()}
+                  </p>
+                ) : inquiry.draft_generated_at ? (
                   <p className="text-xs text-zinc-500">
                     Generated {new Date(inquiry.draft_generated_at).toLocaleString()}
                   </p>
-                )}
+                ) : null}
               </div>
 
-              {hasDraft || draftBody ? (
+              {isSent ? (
+                <pre className="w-full whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white px-3 py-2 font-sans text-sm text-zinc-900">
+                  {inquiry.draft_reply}
+                </pre>
+              ) : isReady || draftBody ? (
                 <textarea
                   value={draftBody}
                   onChange={(e) => setDraftBody(e.target.value)}
@@ -151,42 +180,60 @@ export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
                 </p>
               )}
 
-              {error && (
-                <p className="text-sm text-red-600">{error}</p>
-              )}
+              {error && <p className="text-sm text-red-600">{error}</p>}
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isPending || !draftBody.trim()}
-                  className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPending ? "Saving..." : "Save & mark ready"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={isPending}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isPending ? "Drafting..." : "Regenerate"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleTrash}
-                  disabled={isPending || !inquiry.draft_reply}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Trash
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsExpanded(false)}
-                  className="ml-auto text-sm text-zinc-600 hover:text-zinc-900"
-                >
-                  Close
-                </button>
+                {isSent ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsExpanded(false)}
+                    className="ml-auto text-sm text-zinc-600 hover:text-zinc-900"
+                  >
+                    Close
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleSend}
+                      disabled={isPending || !draftBody.trim()}
+                      className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isPending ? "Sending..." : "Send to client"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={isPending || !draftBody.trim()}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isPending ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGenerate}
+                      disabled={isPending}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isPending ? "Drafting..." : "Regenerate"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleTrash}
+                      disabled={isPending || !inquiry.draft_reply}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Trash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsExpanded(false)}
+                      className="ml-auto text-sm text-zinc-600 hover:text-zinc-900"
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </td>

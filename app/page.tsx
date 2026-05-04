@@ -17,7 +17,7 @@ export default async function Home() {
   const { data, error } = await supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at",
     )
     .order("created_at", { ascending: false });
 

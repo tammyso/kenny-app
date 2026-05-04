@@ -1,6 +1,7 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
@@ -110,6 +111,68 @@ export async function saveDraft(inquiryId: string, draftReply: string) {
 
   if (error) {
     throw new Error(`Failed to save draft: ${error.message}`);
+  }
+
+  revalidatePath("/");
+}
+
+type InquiryForSend = {
+  client_name: string;
+  client_email: string;
+  project_type: string | null;
+};
+
+const buildSubject = (projectType: string | null) =>
+  projectType
+    ? `Re: your ${projectType.toLowerCase()} inquiry`
+    : "Re: your inquiry";
+
+export async function sendDraft(inquiryId: string, draftReply: string) {
+  const supabase = await requireUser();
+
+  const trimmed = draftReply.trim();
+  if (!trimmed) {
+    throw new Error("Draft is empty");
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+
+  const { data: inquiry, error: lookupError } = await supabase
+    .from("inquiries")
+    .select("client_name, client_email, project_type")
+    .eq("id", inquiryId)
+    .single<InquiryForSend>();
+
+  if (lookupError || !inquiry) {
+    throw new Error("Inquiry not found");
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error: sendError } = await resend.emails.send({
+    from: "Kenny <onboarding@resend.dev>",
+    to: inquiry.client_email,
+    subject: buildSubject(inquiry.project_type),
+    text: trimmed,
+  });
+
+  if (sendError) {
+    throw new Error(`Failed to send: ${sendError.message}`);
+  }
+
+  const sentAt = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("inquiries")
+    .update({
+      draft_reply: trimmed,
+      draft_status: "sent",
+      sent_at: sentAt,
+    })
+    .eq("id", inquiryId);
+
+  if (updateError) {
+    throw new Error(`Email sent, but failed to record: ${updateError.message}`);
   }
 
   revalidatePath("/");
