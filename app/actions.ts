@@ -205,7 +205,7 @@ const triageSubjectPrefix = (tag: TriageResult["tag"] | undefined): string => {
     case "flagged":
       return "[FLAGGED] ";
     case "low_value":
-      return "[Low value] ";
+      return "[Low priority] ";
     default:
       return "";
   }
@@ -234,10 +234,11 @@ async function sendNewInquiryNotification(
   ];
 
   if (triage && triage.tag !== "clean") {
+    const label = triage.tag === "flagged" ? "Flagged" : "Low priority";
     lines.push(
       "",
       "— — —",
-      `Triage: ${triage.tag.toUpperCase()}${triage.reason ? ` — ${triage.reason}` : ""}`,
+      `Priority: ${label}${triage.reason ? ` — ${triage.reason}` : ""}`,
     );
   }
 

@@ -182,7 +182,7 @@ export default function InquiryRow({
                 title={inquiry.triage_reason ?? undefined}
                 className="inline-flex w-fit items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
               >
-                Low value
+                Low priority
               </span>
             )}
           </div>
