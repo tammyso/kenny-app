@@ -66,23 +66,41 @@ export async function getDayAvailability(
   end.setUTCDate(end.getUTCDate() + 1);
 
   try {
+    // List all calendars the user has, then query freebusy across all of them.
+    // Querying just "primary" misses events on secondary or "other" calendars,
+    // and Kenny will likely have work + personal calendars.
+    const list = await calendar.calendarList.list();
+    const calendarIds =
+      list.data.items
+        ?.map((c) => c.id)
+        .filter((id): id is string => Boolean(id)) ?? ["primary"];
+
     const result = await calendar.freebusy.query({
       requestBody: {
         timeMin: start.toISOString(),
         timeMax: end.toISOString(),
-        items: [{ id: "primary" }],
+        items: calendarIds.map((id) => ({ id })),
       },
     });
-    const busy = result.data.calendars?.primary?.busy ?? [];
+
+    const calendarsResult = result.data.calendars ?? {};
+    let totalBusyCount = 0;
+    const perCalendar: Record<string, number> = {};
+    for (const [id, data] of Object.entries(calendarsResult)) {
+      const count = data.busy?.length ?? 0;
+      perCalendar[id] = count;
+      totalBusyCount += count;
+    }
     console.log("[freebusy]", {
       dateString,
       timeMin: start.toISOString(),
       timeMax: end.toISOString(),
-      calendarsKeys: Object.keys(result.data.calendars ?? {}),
-      busyCount: busy.length,
-      busy,
+      calendarCount: calendarIds.length,
+      totalBusyCount,
+      perCalendar,
     });
-    return busy.length > 0 ? "busy" : "free";
+
+    return totalBusyCount > 0 ? "busy" : "free";
   } catch (err) {
     console.error("getDayAvailability error:", err);
     return null;
