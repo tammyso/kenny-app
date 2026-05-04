@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { deleteRefreshToken } from "@/lib/google";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 
 type InquiryForPrompt = {
@@ -175,6 +176,12 @@ export async function sendDraft(inquiryId: string, draftReply: string) {
     throw new Error(`Email sent, but failed to record: ${updateError.message}`);
   }
 
+  revalidatePath("/");
+}
+
+export async function disconnectCalendar() {
+  await requireUser();
+  await deleteRefreshToken();
   revalidatePath("/");
 }
 
