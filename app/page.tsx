@@ -88,7 +88,7 @@ export default async function Home({
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-12">
-      <div className="mb-8 flex items-end justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-zinc-900">Inquiry Dashboard</h1>
           <p className="mt-2 text-sm text-zinc-600">
@@ -97,7 +97,7 @@ export default async function Home({
               : `Showing ${inquiries.length} submissions.`}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {calendarConnected ? (
             <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
               <span className="font-medium text-emerald-800">Calendar connected</span>
@@ -171,8 +171,22 @@ export default async function Home({
             <tbody className="divide-y divide-zinc-200 bg-white">
               {inquiries.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-zinc-500" colSpan={9}>
-                    {error ? "Unable to load inquiries right now." : "No inquiries yet."}
+                  <td className="px-4 py-12 text-center text-sm text-zinc-500" colSpan={9}>
+                    {error ? (
+                      "Unable to load inquiries right now."
+                    ) : (
+                      <>
+                        No inquiries yet. Send a client to{" "}
+                        <a
+                          href="/submit"
+                          className="font-medium text-zinc-700 underline-offset-2 hover:underline"
+                        >
+                          /submit
+                        </a>{" "}
+                        — once they fill the form, the inquiry shows up here for
+                        you to triage.
+                      </>
+                    )}
                   </td>
                 </tr>
               ) : (

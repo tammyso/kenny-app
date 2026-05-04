@@ -23,7 +23,7 @@ export default async function ProspectsPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
-      <div className="mb-8 flex items-end justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-zinc-900">Prospects</h1>
           <p className="mt-2 text-sm text-zinc-600">
@@ -32,7 +32,7 @@ export default async function ProspectsPage() {
               : `Tracking ${prospects.length} ${prospects.length === 1 ? "brand" : "brands"}.`}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
@@ -47,8 +47,9 @@ export default async function ProspectsPage() {
 
       <div className="mt-8 space-y-4">
         {prospects.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-8 text-center text-sm text-zinc-500">
-            No prospects yet. Add one above.
+          <p className="rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center text-sm text-zinc-500">
+            No prospects yet. Add a brand above — the more specific the fit
+            notes, the better the AI&apos;s cold-outreach draft.
           </p>
         ) : (
           prospects.map((p) => <ProspectCard key={p.id} prospect={p} />)

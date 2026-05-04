@@ -35,13 +35,12 @@ export default function SubmitInquiryPage() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [didSubmit, setDidSubmit] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setErrorMessage("");
-    setSuccessMessage("");
 
     const payload = {
       ...form,
@@ -59,10 +58,31 @@ export default function SubmitInquiryPage() {
       return;
     }
 
-    setSuccessMessage("Thanks! Your inquiry has been submitted.");
+    setDidSubmit(true);
     setForm(initialFormState);
     setIsSubmitting(false);
   };
+
+  if (didSubmit) {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-6 py-12">
+        <div className="rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
+          <h1 className="text-2xl font-semibold text-zinc-900">Thanks for reaching out</h1>
+          <p className="mt-3 text-sm text-zinc-700">
+            Your inquiry is in. Kenny will follow up within a day or two — keep
+            an eye on your inbox.
+          </p>
+          <button
+            type="button"
+            onClick={() => setDidSubmit(false)}
+            className="mt-6 inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+          >
+            Submit another inquiry
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -194,12 +214,6 @@ export default function SubmitInquiryPage() {
           {errorMessage ? (
             <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {errorMessage}
-            </p>
-          ) : null}
-
-          {successMessage ? (
-            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              {successMessage}
             </p>
           ) : null}
 

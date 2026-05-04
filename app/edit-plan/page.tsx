@@ -13,7 +13,7 @@ export default async function EditPlanPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-12">
-      <div className="mb-8 flex items-end justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-zinc-900">Edit plan</h1>
           <p className="mt-2 text-sm text-zinc-600">
@@ -21,7 +21,7 @@ export default async function EditPlanPage() {
             structured plan to drop into a Premiere timeline.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/"
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
