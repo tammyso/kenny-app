@@ -1,0 +1,228 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { generateEditPlan, type EditPlanImage } from "./actions";
+
+type LocalImage = {
+  file: File;
+  previewUrl: string;
+};
+
+const ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+type AllowedType = (typeof ALLOWED_TYPES)[number];
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",", 2)[1] ?? "";
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+export default function EditPlanForm() {
+  const [images, setImages] = useState<LocalImage[]>([]);
+  const [brief, setBrief] = useState("");
+  const [projectType, setProjectType] = useState("");
+  const [targetLength, setTargetLength] = useState("");
+  const [vibe, setVibe] = useState("");
+  const [plan, setPlan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    setError(null);
+    const next: LocalImage[] = [];
+    for (const file of Array.from(files)) {
+      if (!ALLOWED_TYPES.includes(file.type as AllowedType)) {
+        setError(`${file.name} skipped — only JPG, PNG, GIF, or WEBP.`);
+        continue;
+      }
+      next.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    setImages((prev) => [...prev, ...next].slice(0, 12));
+  };
+
+  const removeImage = (idx: number) => {
+    setImages((prev) => {
+      const target = prev[idx];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const handleSubmit = () => {
+    setError(null);
+    setPlan(null);
+
+    if (!brief.trim()) {
+      setError("Brief is required.");
+      return;
+    }
+    if (images.length === 0) {
+      setError("Upload at least one thumbnail.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const payload: EditPlanImage[] = await Promise.all(
+          images.map(async (img) => ({
+            base64: await fileToBase64(img.file),
+            mediaType: img.file.type as AllowedType,
+          })),
+        );
+        const result = await generateEditPlan({
+          brief,
+          projectType,
+          targetLength,
+          vibe,
+          images: payload,
+        });
+        setPlan(result);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      }
+    });
+  };
+
+  const handleCopy = async () => {
+    if (!plan) return;
+    try {
+      await navigator.clipboard.writeText(plan);
+    } catch {
+      setError("Couldn't copy — select and copy manually.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-zinc-900">
+          1. Upload thumbnails
+        </h2>
+        <p className="mt-1 text-xs text-zinc-600">
+          Take screenshots of key moments from each clip in Premiere. Up to 12
+          thumbnails. They&apos;re sent to Claude for the plan and not stored.
+        </p>
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={(e) => handleFiles(e.target.files)}
+          className="mt-3 block w-full text-sm text-zinc-700 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
+        />
+
+        {images.length > 0 && (
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+            {images.map((img, i) => (
+              <div key={img.previewUrl} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={img.previewUrl}
+                  alt={`Thumbnail ${i + 1}`}
+                  className="aspect-video w-full rounded-md border border-zinc-200 object-cover"
+                />
+                <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
+                  {i + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white hover:bg-black"
+                  aria-label={`Remove thumbnail ${i + 1}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-zinc-900">2. Brief</h2>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-xs text-zinc-700">
+            <span>Project type</span>
+            <input
+              value={projectType}
+              onChange={(e) => setProjectType(e.target.value)}
+              placeholder="Wedding, brand reel, music video..."
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-zinc-700">
+            <span>Target length</span>
+            <input
+              value={targetLength}
+              onChange={(e) => setTargetLength(e.target.value)}
+              placeholder="60 seconds, 3 minutes..."
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-zinc-700">
+            <span>Vibe / energy</span>
+            <input
+              value={vibe}
+              onChange={(e) => setVibe(e.target.value)}
+              placeholder="Cinematic, punchy, intimate..."
+              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            />
+          </label>
+        </div>
+        <label className="mt-3 flex flex-col gap-1 text-xs text-zinc-700">
+          <span>
+            What is this edit for? Audience, story arc, key moments to hit,
+            anything special about the shoot.
+          </span>
+          <textarea
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            rows={4}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isPending || images.length === 0 || !brief.trim()}
+          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isPending ? "Generating plan..." : "Generate plan"}
+        </button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+
+      {plan && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-zinc-900">Edit plan</h2>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
+            >
+              Copy to clipboard
+            </button>
+          </div>
+          <pre className="mt-4 whitespace-pre-wrap font-sans text-sm leading-6 text-zinc-900">
+            {plan}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}

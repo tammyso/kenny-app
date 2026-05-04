@@ -125,6 +125,12 @@ export default async function Home({
             Prospects
           </a>
           <a
+            href="/edit-plan"
+            className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+          >
+            Edit plan
+          </a>
+          <a
             href="/submit"
             className="inline-flex h-10 items-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700"
           >
