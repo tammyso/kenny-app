@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { submitInquiry } from "../actions";
 import { PORTFOLIO_ITEMS } from "@/lib/portfolio";
+import { KENNY_PROFILE } from "@/lib/profile";
 
 const PROJECT_TYPES = ["Wedding", "Brand", "Event", "Music Video", "Other"];
 const BUDGET_RANGES = [
@@ -240,6 +241,30 @@ export default function SubmitInquiryPage() {
             </form>
           </div>
         </div>
+
+        <footer className="mt-16 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+          <span>Based in {KENNY_PROFILE.city}</span>
+          <span aria-hidden className="text-zinc-700">·</span>
+          <a
+            href={`mailto:${KENNY_PROFILE.email}`}
+            className="text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+          >
+            {KENNY_PROFILE.email}
+          </a>
+          {KENNY_PROFILE.socials.map((social) => (
+            <span key={social.href} className="contents">
+              <span aria-hidden className="text-zinc-700">·</span>
+              <a
+                href={social.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+              >
+                {social.handle}
+              </a>
+            </span>
+          ))}
+        </footer>
       </main>
     </div>
   );
