@@ -37,6 +37,9 @@ export type InquiryRowData = {
   invoice_status: string | null;
   archived_at: string | null;
   internal_notes: string | null;
+  triage_tag: string | null;
+  triage_reason: string | null;
+  client_research: string | null;
 };
 
 const displayDate = (value: string | null) => {
@@ -164,7 +167,25 @@ export default function InquiryRow({
           {displayDate(inquiry.created_at)}
         </td>
         <td className="px-4 py-3 font-medium text-zinc-900">
-          {inquiry.client_name}
+          <div className="flex flex-col gap-1">
+            <span>{inquiry.client_name}</span>
+            {inquiry.triage_tag === "flagged" && (
+              <span
+                title={inquiry.triage_reason ?? undefined}
+                className="inline-flex w-fit items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700"
+              >
+                Flagged
+              </span>
+            )}
+            {inquiry.triage_tag === "low_value" && (
+              <span
+                title={inquiry.triage_reason ?? undefined}
+                className="inline-flex w-fit items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
+              >
+                Low value
+              </span>
+            )}
+          </div>
         </td>
         <td className="px-4 py-3 text-zinc-700">{inquiry.client_email}</td>
         <td className="px-4 py-3 text-zinc-700">
@@ -330,6 +351,17 @@ export default function InquiryRow({
         <tr className="bg-zinc-50">
           <td colSpan={9} className="px-4 py-4">
             <div className="space-y-4">
+              {inquiry.client_research && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    AI client research
+                  </p>
+                  <p className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
+                    {inquiry.client_research}
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">

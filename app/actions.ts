@@ -15,6 +15,8 @@ import {
 } from "@/lib/google";
 import { fetchInvoiceStatus, sendInvoiceForShoot } from "@/lib/stripe";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
+import { researchClient } from "@/lib/research";
+import { triageInquiry, type TriageResult } from "@/lib/triage";
 
 type InquiryForPrompt = {
   client_name: string;
@@ -121,19 +123,70 @@ export async function submitInquiry(
     message,
   };
 
-  // Auto-draft the AI reply and email Kenny — runs after the response goes out
-  // so the form-submitting client doesn't wait on Claude's ~10s round trip.
-  // Either step failing is logged and skipped, never blocks the submission.
+  // Auto-draft the AI reply, triage for spam/low-value, and research the
+  // client's brand — all in parallel after the response goes out so the
+  // form-submitting client doesn't wait. Each step fails soft.
   after(async () => {
-    let draft: string | null = null;
-    try {
-      const admin = createSupabaseAdminClient();
-      draft = await runDraftGeneration({ inquiryId, supabase: admin });
-    } catch (draftErr) {
-      console.error("Auto-draft failed:", draftErr);
+    const admin = createSupabaseAdminClient();
+
+    const [draftSettled, triageSettled, researchSettled] =
+      await Promise.allSettled([
+        runDraftGeneration({ inquiryId, supabase: admin }),
+        triageInquiry({
+          clientName,
+          clientEmail,
+          projectType,
+          budgetRange,
+          message,
+        }),
+        researchClient({ clientName, clientEmail }),
+      ]);
+
+    const draft = draftSettled.status === "fulfilled" ? draftSettled.value : null;
+    if (draftSettled.status === "rejected") {
+      console.error("Auto-draft failed:", draftSettled.reason);
     }
+
+    const triage =
+      triageSettled.status === "fulfilled" ? triageSettled.value : null;
+    if (triageSettled.status === "rejected") {
+      console.error("Triage failed:", triageSettled.reason);
+    }
+
+    const research =
+      researchSettled.status === "fulfilled" ? researchSettled.value : null;
+    if (researchSettled.status === "rejected") {
+      console.error("Research failed:", researchSettled.reason);
+    }
+
+    // Persist triage and research to the inquiry. Draft is already saved by
+    // runDraftGeneration. Done in one update so the row only revalidates once.
+    if (triage || research) {
+      const update: Record<string, string | null> = {};
+      if (triage) {
+        update.triage_tag = triage.tag;
+        update.triage_reason = triage.reason || null;
+      }
+      if (research) {
+        update.client_research = research;
+      }
+      const { error: updateErr } = await admin
+        .from("inquiries")
+        .update(update)
+        .eq("id", inquiryId);
+      if (updateErr) {
+        console.error("Saving triage/research failed:", updateErr);
+      }
+    }
+
     try {
-      await sendNewInquiryNotification(inquiryId, inquirySummary, draft);
+      await sendNewInquiryNotification(
+        inquiryId,
+        inquirySummary,
+        draft,
+        triage,
+        research,
+      );
     } catch (notifyErr) {
       console.error("Inquiry notification failed:", notifyErr);
     }
@@ -152,10 +205,23 @@ type InquirySummary = {
   message: string | null;
 };
 
+const triageSubjectPrefix = (tag: TriageResult["tag"] | undefined): string => {
+  switch (tag) {
+    case "flagged":
+      return "[FLAGGED] ";
+    case "low_value":
+      return "[Low value] ";
+    default:
+      return "";
+  }
+};
+
 async function sendNewInquiryNotification(
   inquiryId: string,
   summary: InquirySummary,
   draft: string | null,
+  triage: TriageResult | null,
+  research: string | null,
 ) {
   if (!process.env.OWNER_NOTIFICATION_EMAIL || !process.env.RESEND_API_KEY) {
     return;
@@ -171,6 +237,19 @@ async function sendNewInquiryNotification(
     "Their message:",
     summary.message ?? "(no message)",
   ];
+
+  if (triage && triage.tag !== "clean") {
+    lines.push(
+      "",
+      "— — —",
+      `Triage: ${triage.tag.toUpperCase()}${triage.reason ? ` — ${triage.reason}` : ""}`,
+    );
+  }
+
+  if (research) {
+    lines.push("", "— — —", "Client research:", "", research);
+  }
+
   if (draft) {
     lines.push(
       "",
@@ -182,13 +261,14 @@ async function sendNewInquiryNotification(
   }
   lines.push("", `Open the dashboard: ${getSiteUrl()}/?inquiry=${inquiryId}`);
 
+  const subjectPrefix = triageSubjectPrefix(triage?.tag);
+  const draftSuffix = draft ? " — draft ready" : "";
+
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
     from: "Kenny App <onboarding@resend.dev>",
     to: process.env.OWNER_NOTIFICATION_EMAIL,
-    subject: draft
-      ? `New inquiry from ${summary.clientName} — draft ready`
-      : `New inquiry from ${summary.clientName}`,
+    subject: `${subjectPrefix}New inquiry from ${summary.clientName}${draftSuffix}`,
     text: lines.join("\n"),
   });
 }

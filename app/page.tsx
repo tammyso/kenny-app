@@ -66,7 +66,7 @@ export default async function Home({
   const baseQuery = supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes, triage_tag, triage_reason, client_research",
     )
     .order("created_at", { ascending: false });
 
