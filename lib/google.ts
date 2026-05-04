@@ -74,6 +74,14 @@ export async function getDayAvailability(
       },
     });
     const busy = result.data.calendars?.primary?.busy ?? [];
+    console.log("[freebusy]", {
+      dateString,
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      calendarsKeys: Object.keys(result.data.calendars ?? {}),
+      busyCount: busy.length,
+      busy,
+    });
     return busy.length > 0 ? "busy" : "free";
   } catch (err) {
     console.error("getDayAvailability error:", err);
