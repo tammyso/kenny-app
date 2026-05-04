@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { generateDraft, saveDraft, sendDraft, trashDraft } from "./actions";
+import type { AvailabilityStatus } from "@/lib/google";
 
 export type InquiryRowData = {
   id: string;
@@ -26,7 +27,13 @@ const displayDate = (value: string | null) => {
   return parsed.toLocaleDateString();
 };
 
-export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
+export default function InquiryRow({
+  inquiry,
+  availability,
+}: {
+  inquiry: InquiryRowData;
+  availability: AvailabilityStatus | null;
+}) {
   const isReady = inquiry.draft_status === "ready_to_send";
   const isSent = inquiry.draft_status === "sent";
   const isTrashed = inquiry.draft_status === "trashed";
@@ -79,7 +86,19 @@ export default function InquiryRow({ inquiry }: { inquiry: InquiryRowData }) {
           {inquiry.project_type || "-"}
         </td>
         <td className="px-4 py-3 text-zinc-700">
-          {displayDate(inquiry.event_date)}
+          <div className="flex flex-col gap-1">
+            <span>{displayDate(inquiry.event_date)}</span>
+            {availability === "free" && (
+              <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                Free
+              </span>
+            )}
+            {availability === "busy" && (
+              <span className="inline-flex w-fit items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+                Conflict
+              </span>
+            )}
+          </div>
         </td>
         <td className="px-4 py-3 text-zinc-700">
           {inquiry.budget_range || "-"}

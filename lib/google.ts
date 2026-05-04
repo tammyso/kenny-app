@@ -42,3 +42,41 @@ export async function deleteRefreshToken(): Promise<void> {
 export async function isCalendarConnected(): Promise<boolean> {
   return (await getStoredRefreshToken()) !== null;
 }
+
+async function getAuthedCalendarClient() {
+  const refreshToken = await getStoredRefreshToken();
+  if (!refreshToken) return null;
+  // The OAuth2 client refreshes the access token automatically when given a
+  // refresh token; the redirect URI is irrelevant for token refresh.
+  const oauth = createOAuthClient("unused");
+  oauth.setCredentials({ refresh_token: refreshToken });
+  return google.calendar({ version: "v3", auth: oauth });
+}
+
+export type AvailabilityStatus = "free" | "busy";
+
+export async function getDayAvailability(
+  dateString: string,
+): Promise<AvailabilityStatus | null> {
+  const calendar = await getAuthedCalendarClient();
+  if (!calendar) return null;
+
+  const start = new Date(`${dateString}T00:00:00.000Z`);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 1);
+
+  try {
+    const result = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        items: [{ id: "primary" }],
+      },
+    });
+    const busy = result.data.calendars?.primary?.busy ?? [];
+    return busy.length > 0 ? "busy" : "free";
+  } catch (err) {
+    console.error("getDayAvailability error:", err);
+    return null;
+  }
+}

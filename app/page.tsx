@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { isCalendarConnected } from "@/lib/google";
+import {
+  getDayAvailability,
+  isCalendarConnected,
+  type AvailabilityStatus,
+} from "@/lib/google";
 import SignOutButton from "./sign-out-button";
 import InquiryRow, { type InquiryRowData } from "./inquiry-row";
 import { disconnectCalendar } from "./actions";
@@ -62,6 +66,25 @@ export default async function Home({
     .order("created_at", { ascending: false });
 
   const inquiries: InquiryRowData[] = data ?? [];
+
+  const availabilityByDate = new Map<string, AvailabilityStatus | null>();
+  if (calendarConnected) {
+    const uniqueDates = Array.from(
+      new Set(
+        inquiries
+          .map((i) => i.event_date)
+          .filter((d): d is string => !!d),
+      ),
+    );
+    const results = await Promise.all(
+      uniqueDates.map(
+        async (date) => [date, await getDayAvailability(date)] as const,
+      ),
+    );
+    for (const [date, status] of results) {
+      availabilityByDate.set(date, status);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-12">
@@ -142,7 +165,15 @@ export default async function Home({
                 </tr>
               ) : (
                 inquiries.map((inquiry) => (
-                  <InquiryRow key={inquiry.id} inquiry={inquiry} />
+                  <InquiryRow
+                    key={inquiry.id}
+                    inquiry={inquiry}
+                    availability={
+                      inquiry.event_date
+                        ? availabilityByDate.get(inquiry.event_date) ?? null
+                        : null
+                    }
+                  />
                 ))
               )}
             </tbody>
