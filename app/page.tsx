@@ -7,6 +7,7 @@ import {
 } from "@/lib/google";
 import SignOutButton from "./sign-out-button";
 import InquiryRow, { type InquiryRowData } from "./inquiry-row";
+import DashboardBoard from "./dashboard-board";
 import { disconnectCalendar } from "./actions";
 
 const calendarBannerCopy = (status: string | undefined, message: string | undefined) => {
@@ -46,6 +47,7 @@ export default async function Home({
     calendar?: string;
     message?: string;
     archived?: string;
+    view?: string;
   }>;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -62,6 +64,7 @@ export default async function Home({
   const banner = calendarBannerCopy(params.calendar, params.message);
   const calendarConnected = await isCalendarConnected();
   const showingArchived = params.archived === "1";
+  const isBoardView = params.view === "board";
 
   const baseQuery = supabase
     .from("inquiries")
@@ -141,8 +144,40 @@ export default async function Home({
           >
             Edit plan
           </a>
+          <div className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white p-0.5 text-sm font-medium">
+            <a
+              href={showingArchived ? "/?archived=1" : "/"}
+              className={`inline-flex h-full items-center rounded-md px-3 transition ${
+                !isBoardView
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-700 hover:bg-zinc-50"
+              }`}
+            >
+              List
+            </a>
+            <a
+              href={
+                showingArchived ? "/?archived=1&view=board" : "/?view=board"
+              }
+              className={`inline-flex h-full items-center rounded-md px-3 transition ${
+                isBoardView
+                  ? "bg-zinc-900 text-white"
+                  : "text-zinc-700 hover:bg-zinc-50"
+              }`}
+            >
+              Board
+            </a>
+          </div>
           <a
-            href={showingArchived ? "/" : "/?archived=1"}
+            href={
+              showingArchived
+                ? isBoardView
+                  ? "/?view=board"
+                  : "/"
+                : isBoardView
+                  ? "/?archived=1&view=board"
+                  : "/?archived=1"
+            }
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
           >
             {showingArchived ? "Back to active" : "Archived"}
@@ -169,6 +204,9 @@ export default async function Home({
         </div>
       )}
 
+      {isBoardView ? (
+        <DashboardBoard inquiries={inquiries} />
+      ) : (
       <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-zinc-200 text-left text-sm">
@@ -225,6 +263,7 @@ export default async function Home({
           </table>
         </div>
       </div>
+      )}
     </main>
   );
 }
