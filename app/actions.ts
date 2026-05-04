@@ -308,6 +308,16 @@ export async function unarchiveInquiry(inquiryId: string) {
   revalidatePath("/");
 }
 
+export async function deleteInquiry(inquiryId: string) {
+  const supabase = await requireUser();
+  const { error } = await supabase
+    .from("inquiries")
+    .delete()
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to delete: ${error.message}`);
+  revalidatePath("/");
+}
+
 export async function updateInternalNotes(inquiryId: string, notes: string) {
   const supabase = await requireUser();
   const { error } = await supabase

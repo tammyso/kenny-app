@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import {
   archiveInquiry,
   bookShoot,
+  deleteInquiry,
   generateDraft,
   refreshInvoiceStatus,
   saveDraft,
@@ -160,6 +161,16 @@ export default function InquiryRow({
 
   const handleArchive = () => runAction(() => archiveInquiry(inquiry.id));
   const handleUnarchive = () => runAction(() => unarchiveInquiry(inquiry.id));
+  const handleDelete = () => {
+    if (
+      !confirm(
+        `Permanently delete inquiry from ${inquiry.client_name}? This can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    runAction(() => deleteInquiry(inquiry.id));
+  };
 
   return (
     <>
@@ -499,6 +510,14 @@ export default function InquiryRow({
                   className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isArchived ? "Unarchive" : "Archive"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isPending}
+                  className="rounded-md border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Delete
                 </button>
                 <button
                   type="button"
