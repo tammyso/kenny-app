@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { generateDraft, saveDraft, sendDraft, trashDraft } from "./actions";
-import type { AvailabilityStatus } from "@/lib/google";
+import {
+  bookShoot,
+  generateDraft,
+  saveDraft,
+  sendDraft,
+  trashDraft,
+} from "./actions";
+import type { DayEvent } from "@/lib/google";
 
 export type InquiryRowData = {
   id: string;
@@ -18,6 +24,8 @@ export type InquiryRowData = {
   draft_status: string | null;
   draft_generated_at: string | null;
   sent_at: string | null;
+  calendar_event_id: string | null;
+  calendar_event_link: string | null;
 };
 
 const displayDate = (value: string | null) => {
@@ -37,10 +45,10 @@ const displayDate = (value: string | null) => {
 
 export default function InquiryRow({
   inquiry,
-  availability,
+  events,
 }: {
   inquiry: InquiryRowData;
-  availability: AvailabilityStatus | null;
+  events: DayEvent[] | null;
 }) {
   const isReady = inquiry.draft_status === "ready_to_send";
   const isSent = inquiry.draft_status === "sent";
@@ -80,6 +88,22 @@ export default function InquiryRow({
 
   const handleTrash = () => runAction(() => trashDraft(inquiry.id));
 
+  const isBooked =
+    inquiry.status === "booked" && Boolean(inquiry.calendar_event_link);
+
+  const handleBook = () => {
+    const projectLabel = inquiry.project_type ?? "shoot";
+    const dateLabel = displayDate(inquiry.event_date);
+    if (
+      !confirm(
+        `Book ${inquiry.client_name}'s ${projectLabel} on ${dateLabel}? This creates an event on your primary Google Calendar.`,
+      )
+    ) {
+      return;
+    }
+    runAction(() => bookShoot(inquiry.id));
+  };
+
   return (
     <>
       <tr className="align-top">
@@ -96,15 +120,46 @@ export default function InquiryRow({
         <td className="px-4 py-3 text-zinc-700">
           <div className="flex flex-col gap-1">
             <span>{displayDate(inquiry.event_date)}</span>
-            {availability === "free" && (
-              <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                Free
-              </span>
-            )}
-            {availability === "busy" && (
-              <span className="inline-flex w-fit items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
-                Conflict
-              </span>
+            {isBooked ? (
+              <a
+                href={inquiry.calendar_event_link!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-fit items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
+              >
+                Booked
+              </a>
+            ) : (
+              <>
+                {events && events.length === 0 && (
+                  <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                    Free
+                  </span>
+                )}
+                {events && events.length > 0 && (
+                  <ul className="space-y-0.5 text-xs text-zinc-600">
+                    {events.map((e, i) => (
+                      <li key={i} className="flex gap-1">
+                        <span className="text-zinc-400">•</span>
+                        <span>
+                          {e.title}
+                          <span className="text-zinc-400"> · {e.timeLabel}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {events && inquiry.event_date && (
+                  <button
+                    type="button"
+                    onClick={handleBook}
+                    disabled={isPending}
+                    className="inline-flex w-fit items-center rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isPending ? "Booking..." : "Book shoot"}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </td>

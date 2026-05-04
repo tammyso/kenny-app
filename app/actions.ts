@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { deleteRefreshToken } from "@/lib/google";
+import { createShootEvent, deleteRefreshToken } from "@/lib/google";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 
 type InquiryForPrompt = {
@@ -174,6 +174,73 @@ export async function sendDraft(inquiryId: string, draftReply: string) {
 
   if (updateError) {
     throw new Error(`Email sent, but failed to record: ${updateError.message}`);
+  }
+
+  revalidatePath("/");
+}
+
+type InquiryForBooking = {
+  client_name: string;
+  project_type: string | null;
+  event_date: string | null;
+  budget_range: string | null;
+  message: string | null;
+  calendar_event_id: string | null;
+};
+
+export async function bookShoot(inquiryId: string) {
+  const supabase = await requireUser();
+
+  const { data: inquiry, error } = await supabase
+    .from("inquiries")
+    .select(
+      "client_name, project_type, event_date, budget_range, message, calendar_event_id",
+    )
+    .eq("id", inquiryId)
+    .single<InquiryForBooking>();
+
+  if (error || !inquiry) {
+    throw new Error("Inquiry not found");
+  }
+
+  if (!inquiry.event_date) {
+    throw new Error("This inquiry has no event date");
+  }
+
+  if (inquiry.calendar_event_id) {
+    throw new Error("This inquiry is already booked");
+  }
+
+  const title = `${inquiry.client_name} — ${inquiry.project_type ?? "shoot"}`;
+  const description = [
+    inquiry.message?.trim() || "(no message)",
+    "",
+    `Budget: ${inquiry.budget_range ?? "not specified"}`,
+  ].join("\n");
+
+  const created = await createShootEvent({
+    dateString: inquiry.event_date,
+    title,
+    description,
+  });
+
+  if (!created) {
+    throw new Error("Calendar isn't connected");
+  }
+
+  const { error: updateError } = await supabase
+    .from("inquiries")
+    .update({
+      status: "booked",
+      calendar_event_id: created.id,
+      calendar_event_link: created.htmlLink,
+    })
+    .eq("id", inquiryId);
+
+  if (updateError) {
+    throw new Error(
+      `Calendar event created, but failed to record: ${updateError.message}`,
+    );
   }
 
   revalidatePath("/");

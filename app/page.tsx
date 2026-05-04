@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
-  getDayAvailability,
+  getDayEvents,
   isCalendarConnected,
-  type AvailabilityStatus,
+  type DayEvent,
 } from "@/lib/google";
 import SignOutButton from "./sign-out-button";
 import InquiryRow, { type InquiryRowData } from "./inquiry-row";
@@ -61,13 +61,13 @@ export default async function Home({
   const { data, error } = await supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link",
     )
     .order("created_at", { ascending: false });
 
   const inquiries: InquiryRowData[] = data ?? [];
 
-  const availabilityByDate = new Map<string, AvailabilityStatus | null>();
+  const eventsByDate = new Map<string, DayEvent[] | null>();
   if (calendarConnected) {
     const uniqueDates = Array.from(
       new Set(
@@ -78,11 +78,11 @@ export default async function Home({
     );
     const results = await Promise.all(
       uniqueDates.map(
-        async (date) => [date, await getDayAvailability(date)] as const,
+        async (date) => [date, await getDayEvents(date)] as const,
       ),
     );
-    for (const [date, status] of results) {
-      availabilityByDate.set(date, status);
+    for (const [date, events] of results) {
+      eventsByDate.set(date, events);
     }
   }
 
@@ -168,9 +168,9 @@ export default async function Home({
                   <InquiryRow
                     key={inquiry.id}
                     inquiry={inquiry}
-                    availability={
+                    events={
                       inquiry.event_date
-                        ? availabilityByDate.get(inquiry.event_date) ?? null
+                        ? eventsByDate.get(inquiry.event_date) ?? null
                         : null
                     }
                   />
