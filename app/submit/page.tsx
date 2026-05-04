@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { submitInquiry } from "../actions";
+import { PORTFOLIO_ITEMS } from "@/lib/portfolio";
 
 const PROJECT_TYPES = ["Wedding", "Brand", "Event", "Music Video", "Other"];
 const BUDGET_RANGES = [
@@ -55,8 +56,8 @@ export default function SubmitInquiryPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-6 py-16">
-      <div className="mb-12">
+    <main className="mx-auto w-full max-w-5xl px-6 py-16">
+      <div className="mb-14 max-w-2xl">
         <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
           Videographer
         </p>
@@ -66,13 +67,46 @@ export default function SubmitInquiryPage() {
           roster of clients on retainers and one-offs that lean into story over
           polish.
         </p>
-        <p className="mt-3 text-sm text-zinc-600">
-          Have a project in mind? Share a few details below and I&apos;ll be in
-          touch.
-        </p>
       </div>
 
-      <div className="rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
+      <div className="mb-14">
+        <p className="mb-4 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          Selected work
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {PORTFOLIO_ITEMS.map((item) => (
+            <figure
+              key={item.id}
+              className="group overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:shadow-md"
+            >
+              <div className="relative aspect-video overflow-hidden bg-zinc-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.posterUrl}
+                  alt={item.title}
+                  className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                />
+              </div>
+              <figcaption className="px-3 py-2.5">
+                <p className="text-sm font-medium text-zinc-900">{item.title}</p>
+                <p className="text-xs text-zinc-500">{item.subtitle}</p>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-6">
+          <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
+            Get in touch
+          </p>
+          <p className="mt-3 text-base text-zinc-700">
+            Have a project in mind? Share a few details and I&apos;ll be in
+            touch within a day or two.
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-200 bg-white p-8 shadow-sm">
         <form ref={formRef} action={handleSubmit} className="space-y-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-2">
@@ -199,6 +233,7 @@ export default function SubmitInquiryPage() {
             {isPending ? "Sending..." : "Send inquiry"}
           </button>
         </form>
+        </div>
       </div>
     </main>
   );

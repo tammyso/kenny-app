@@ -1,7 +1,36 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { generateEditPlan, type EditPlanImage } from "./actions";
+
+// Minimal Web Speech API surface — the official types aren't in TS lib.dom by
+// default, but this is all we use.
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  start(): void;
+  stop(): void;
+};
+type SpeechResultEvent = {
+  resultIndex: number;
+  results: ArrayLike<{
+    isFinal: boolean;
+    [index: number]: { transcript: string };
+  }>;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+const getSpeechRecognitionCtor = (): SpeechRecognitionCtor | null => {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+};
 
 type LocalImage = {
   file: File;
@@ -84,6 +113,75 @@ export default function EditPlanForm() {
   const [plan, setPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Voice memo state — Web Speech API only, no upload/transcription server.
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [interim, setInterim] = useState("");
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+
+  useEffect(() => {
+    setVoiceSupported(getSpeechRecognitionCtor() !== null);
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  const startRecording = () => {
+    setError(null);
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) {
+      setError("Voice input isn't supported in this browser. Type the brief instead.");
+      return;
+    }
+    const recognition = new Ctor();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event) => {
+      let interimText = "";
+      let finalText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0]?.transcript ?? "";
+        if (result.isFinal) finalText += transcript + " ";
+        else interimText += transcript;
+      }
+      setInterim(interimText);
+      if (finalText.trim()) {
+        setBrief((prev) => {
+          const trimmedFinal = finalText.trim();
+          return prev ? `${prev.trim()} ${trimmedFinal}` : trimmedFinal;
+        });
+      }
+    };
+    recognition.onend = () => {
+      setIsRecording(false);
+      setInterim("");
+      recognitionRef.current = null;
+    };
+    recognition.onerror = (event) => {
+      setError(`Voice error: ${event.error}. Try again or type the brief.`);
+      setIsRecording(false);
+      setInterim("");
+      recognitionRef.current = null;
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    recognitionRef.current?.stop();
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) stopRecording();
+    else startRecording();
+  };
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
@@ -224,18 +322,47 @@ export default function EditPlanForm() {
             />
           </label>
         </div>
-        <label className="mt-3 flex flex-col gap-1 text-xs text-zinc-700">
-          <span>
-            What is this edit for? Audience, story arc, key moments to hit,
-            anything special about the shoot.
-          </span>
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-zinc-700">
+              What is this edit for? Audience, story arc, key moments to hit,
+              anything special about the shoot.
+            </span>
+            {voiceSupported && (
+              <button
+                type="button"
+                onClick={toggleRecording}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+                  isRecording
+                    ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                    : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${isRecording ? "animate-pulse bg-red-600" : "bg-zinc-400"}`}
+                  aria-hidden
+                />
+                {isRecording ? "Stop recording" : "Record voice memo"}
+              </button>
+            )}
+          </div>
           <textarea
             value={brief}
             onChange={(e) => setBrief(e.target.value)}
             rows={4}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            placeholder={
+              voiceSupported
+                ? "Type or hit Record voice memo and just talk."
+                : undefined
+            }
+            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
           />
-        </label>
+          {interim && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs italic text-amber-800">
+              {interim}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
