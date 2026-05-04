@@ -10,6 +10,7 @@ import {
   getDayEvents,
   type DayEvent,
 } from "@/lib/google";
+import { fetchInvoiceStatus, sendInvoiceForShoot } from "@/lib/stripe";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 
 type InquiryForPrompt = {
@@ -279,6 +280,94 @@ export async function bookShoot(inquiryId: string) {
     throw new Error(
       `Calendar event created, but failed to record: ${updateError.message}`,
     );
+  }
+
+  revalidatePath("/");
+}
+
+type InquiryForInvoice = {
+  client_name: string;
+  client_email: string;
+  status: string | null;
+  stripe_invoice_id: string | null;
+};
+
+export async function sendInvoice(args: {
+  inquiryId: string;
+  amountCents: number;
+  description: string;
+}) {
+  const supabase = await requireUser();
+
+  const description = args.description.trim();
+  if (!description) throw new Error("Invoice description is required");
+  if (!Number.isInteger(args.amountCents) || args.amountCents <= 0) {
+    throw new Error("Invoice amount must be a positive whole number of cents");
+  }
+
+  const { data: inquiry, error } = await supabase
+    .from("inquiries")
+    .select("client_name, client_email, status, stripe_invoice_id")
+    .eq("id", args.inquiryId)
+    .single<InquiryForInvoice>();
+
+  if (error || !inquiry) throw new Error("Inquiry not found");
+  if (inquiry.status !== "booked") {
+    throw new Error("Only booked inquiries can be invoiced");
+  }
+  if (inquiry.stripe_invoice_id) {
+    throw new Error("This inquiry already has an invoice");
+  }
+
+  const result = await sendInvoiceForShoot({
+    customerName: inquiry.client_name,
+    customerEmail: inquiry.client_email,
+    amountCents: args.amountCents,
+    description,
+  });
+
+  const { error: updateError } = await supabase
+    .from("inquiries")
+    .update({
+      stripe_invoice_id: result.id,
+      stripe_hosted_url: result.hostedUrl,
+      invoice_amount_cents: args.amountCents,
+      invoice_status: result.status,
+    })
+    .eq("id", args.inquiryId);
+
+  if (updateError) {
+    throw new Error(
+      `Invoice sent, but failed to record: ${updateError.message}`,
+    );
+  }
+
+  revalidatePath("/");
+}
+
+export async function refreshInvoiceStatus(inquiryId: string) {
+  const supabase = await requireUser();
+
+  const { data: inquiry, error } = await supabase
+    .from("inquiries")
+    .select("stripe_invoice_id")
+    .eq("id", inquiryId)
+    .single<{ stripe_invoice_id: string | null }>();
+
+  if (error || !inquiry) throw new Error("Inquiry not found");
+  if (!inquiry.stripe_invoice_id) {
+    throw new Error("This inquiry has no invoice");
+  }
+
+  const status = await fetchInvoiceStatus(inquiry.stripe_invoice_id);
+
+  const { error: updateError } = await supabase
+    .from("inquiries")
+    .update({ invoice_status: status })
+    .eq("id", inquiryId);
+
+  if (updateError) {
+    throw new Error(`Failed to update status: ${updateError.message}`);
   }
 
   revalidatePath("/");

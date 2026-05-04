@@ -61,7 +61,7 @@ export default async function Home({
   const { data, error } = await supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status",
     )
     .order("created_at", { ascending: false });
 

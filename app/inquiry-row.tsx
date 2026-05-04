@@ -4,8 +4,10 @@ import { useEffect, useState, useTransition } from "react";
 import {
   bookShoot,
   generateDraft,
+  refreshInvoiceStatus,
   saveDraft,
   sendDraft,
+  sendInvoice,
   trashDraft,
 } from "./actions";
 import type { DayEvent } from "@/lib/google";
@@ -26,6 +28,10 @@ export type InquiryRowData = {
   sent_at: string | null;
   calendar_event_id: string | null;
   calendar_event_link: string | null;
+  stripe_invoice_id: string | null;
+  stripe_hosted_url: string | null;
+  invoice_amount_cents: number | null;
+  invoice_status: string | null;
 };
 
 const displayDate = (value: string | null) => {
@@ -104,6 +110,34 @@ export default function InquiryRow({
     runAction(() => bookShoot(inquiry.id));
   };
 
+  const handleSendInvoice = () => {
+    const amountStr = prompt(
+      `Invoice amount in dollars for ${inquiry.client_name} (e.g. 1500):`,
+    );
+    if (!amountStr) return;
+    const amount = parseFloat(amountStr.replace(/[$,]/g, ""));
+    if (Number.isNaN(amount) || amount <= 0) {
+      alert("Enter a positive number.");
+      return;
+    }
+    const defaultDescription = `${inquiry.project_type ?? "Videography"} — ${inquiry.client_name}, ${displayDate(inquiry.event_date)}`;
+    const description = prompt(
+      "Invoice line item description:",
+      defaultDescription,
+    );
+    if (!description) return;
+    runAction(() =>
+      sendInvoice({
+        inquiryId: inquiry.id,
+        amountCents: Math.round(amount * 100),
+        description,
+      }),
+    );
+  };
+
+  const handleRefreshInvoice = () =>
+    runAction(() => refreshInvoiceStatus(inquiry.id));
+
   return (
     <>
       <tr className="align-top">
@@ -169,7 +203,42 @@ export default function InquiryRow({
         <td className="max-w-xs px-4 py-3 text-zinc-700">
           {inquiry.message || "-"}
         </td>
-        <td className="px-4 py-3 text-zinc-700">{inquiry.status || "new"}</td>
+        <td className="px-4 py-3 text-zinc-700">
+          <div className="flex flex-col gap-1">
+            <span>{inquiry.status || "new"}</span>
+            {isBooked && !inquiry.stripe_invoice_id && (
+              <button
+                type="button"
+                onClick={handleSendInvoice}
+                disabled={isPending}
+                className="inline-flex w-fit items-center rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPending ? "Sending..." : "Send invoice"}
+              </button>
+            )}
+            {inquiry.stripe_invoice_id && (
+              <div className="flex flex-col gap-0.5 text-xs">
+                <a
+                  href={inquiry.stripe_hosted_url ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                >
+                  ${((inquiry.invoice_amount_cents ?? 0) / 100).toFixed(0)} ·{" "}
+                  {inquiry.invoice_status ?? "open"}
+                </a>
+                <button
+                  type="button"
+                  onClick={handleRefreshInvoice}
+                  disabled={isPending}
+                  className="w-fit text-zinc-500 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isPending ? "Refreshing..." : "Refresh status"}
+                </button>
+              </div>
+            )}
+          </div>
+        </td>
         <td className="px-4 py-3">
           {isSent ? (
             <div className="flex items-center gap-2">
