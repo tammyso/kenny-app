@@ -66,6 +66,108 @@ const requireUser = async () => {
   return supabase;
 };
 
+const getSiteUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+};
+
+type SubmitInquiryResult = { ok: true } | { ok: false; error: string };
+
+export async function submitInquiry(
+  formData: FormData,
+): Promise<SubmitInquiryResult> {
+  const supabase = await createSupabaseServerClient();
+
+  const clientName = String(formData.get("client_name") ?? "").trim();
+  const clientEmail = String(formData.get("client_email") ?? "").trim();
+  const projectType =
+    String(formData.get("project_type") ?? "").trim() || null;
+  const eventDate = String(formData.get("event_date") ?? "").trim() || null;
+  const budgetRange =
+    String(formData.get("budget_range") ?? "").trim() || null;
+  const message = String(formData.get("message") ?? "").trim() || null;
+
+  if (!clientName) return { ok: false, error: "Name is required" };
+  if (!clientEmail) return { ok: false, error: "Email is required" };
+
+  const { data: inserted, error } = await supabase
+    .from("inquiries")
+    .insert({
+      client_name: clientName,
+      client_email: clientEmail,
+      project_type: projectType,
+      event_date: eventDate,
+      budget_range: budgetRange,
+      message,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: "Couldn't submit. Please try again." };
+
+  // Notify the owner if configured. Failure here shouldn't block the submission
+  // — the inquiry is already saved, the dashboard will still pick it up.
+  if (process.env.OWNER_NOTIFICATION_EMAIL && process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const lines = [
+        `New inquiry from ${clientName} <${clientEmail}>`,
+        "",
+        `Project type: ${projectType ?? "not specified"}`,
+        `Event date: ${eventDate ?? "not specified"}`,
+        `Budget range: ${budgetRange ?? "not specified"}`,
+        "",
+        "Message:",
+        message ?? "(no message)",
+        "",
+        `Open the dashboard: ${getSiteUrl()}/`,
+      ];
+      await resend.emails.send({
+        from: "Kenny App <onboarding@resend.dev>",
+        to: process.env.OWNER_NOTIFICATION_EMAIL,
+        subject: `New inquiry from ${clientName}`,
+        text: lines.join("\n"),
+      });
+    } catch (notifyErr) {
+      console.error("Inquiry notification failed:", notifyErr);
+    }
+  }
+
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function archiveInquiry(inquiryId: string) {
+  const supabase = await requireUser();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to archive: ${error.message}`);
+  revalidatePath("/");
+}
+
+export async function unarchiveInquiry(inquiryId: string) {
+  const supabase = await requireUser();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ archived_at: null })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to unarchive: ${error.message}`);
+  revalidatePath("/");
+}
+
+export async function updateInternalNotes(inquiryId: string, notes: string) {
+  const supabase = await requireUser();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ internal_notes: notes.trim() || null })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to save notes: ${error.message}`);
+  revalidatePath("/");
+}
+
 export async function generateDraft(inquiryId: string) {
   const supabase = await requireUser();
 

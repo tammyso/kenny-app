@@ -42,7 +42,11 @@ const calendarBannerCopy = (status: string | undefined, message: string | undefi
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ calendar?: string; message?: string }>;
+  searchParams: Promise<{
+    calendar?: string;
+    message?: string;
+    archived?: string;
+  }>;
 }) {
   const supabase = await createSupabaseServerClient();
 
@@ -57,13 +61,18 @@ export default async function Home({
   const params = await searchParams;
   const banner = calendarBannerCopy(params.calendar, params.message);
   const calendarConnected = await isCalendarConnected();
+  const showingArchived = params.archived === "1";
 
-  const { data, error } = await supabase
+  const baseQuery = supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes",
     )
     .order("created_at", { ascending: false });
+
+  const { data, error } = await (showingArchived
+    ? baseQuery.not("archived_at", "is", null)
+    : baseQuery.is("archived_at", null));
 
   const inquiries: InquiryRowData[] = data ?? [];
 
@@ -94,7 +103,9 @@ export default async function Home({
           <p className="mt-2 text-sm text-zinc-600">
             {error
               ? "There was a problem loading inquiries."
-              : `Showing ${inquiries.length} submissions.`}
+              : showingArchived
+                ? `Showing ${inquiries.length} archived ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`
+                : `Showing ${inquiries.length} active ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -129,6 +140,12 @@ export default async function Home({
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
           >
             Edit plan
+          </a>
+          <a
+            href={showingArchived ? "/" : "/?archived=1"}
+            className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+          >
+            {showingArchived ? "Back to active" : "Archived"}
           </a>
           <a
             href="/submit"
@@ -174,6 +191,8 @@ export default async function Home({
                   <td className="px-4 py-12 text-center text-sm text-zinc-500" colSpan={9}>
                     {error ? (
                       "Unable to load inquiries right now."
+                    ) : showingArchived ? (
+                      "No archived inquiries yet."
                     ) : (
                       <>
                         No inquiries yet. Send a client to{" "}

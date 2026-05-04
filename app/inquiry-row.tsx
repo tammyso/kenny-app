@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
+  archiveInquiry,
   bookShoot,
   generateDraft,
   refreshInvoiceStatus,
@@ -9,6 +10,8 @@ import {
   sendDraft,
   sendInvoice,
   trashDraft,
+  unarchiveInquiry,
+  updateInternalNotes,
 } from "./actions";
 import type { DayEvent } from "@/lib/google";
 
@@ -32,6 +35,8 @@ export type InquiryRowData = {
   stripe_hosted_url: string | null;
   invoice_amount_cents: number | null;
   invoice_status: string | null;
+  archived_at: string | null;
+  internal_notes: string | null;
 };
 
 const displayDate = (value: string | null) => {
@@ -62,12 +67,20 @@ export default function InquiryRow({
 
   const [isExpanded, setIsExpanded] = useState(isReady);
   const [draftBody, setDraftBody] = useState(inquiry.draft_reply ?? "");
+  const [notesBody, setNotesBody] = useState(inquiry.internal_notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setDraftBody(inquiry.draft_reply ?? "");
   }, [inquiry.draft_reply]);
+
+  useEffect(() => {
+    setNotesBody(inquiry.internal_notes ?? "");
+  }, [inquiry.internal_notes]);
+
+  const isArchived = Boolean(inquiry.archived_at);
+  const notesDirty = notesBody !== (inquiry.internal_notes ?? "");
 
   const runAction = (action: () => Promise<void>) => {
     setError(null);
@@ -138,9 +151,15 @@ export default function InquiryRow({
   const handleRefreshInvoice = () =>
     runAction(() => refreshInvoiceStatus(inquiry.id));
 
+  const handleSaveNotes = () =>
+    runAction(() => updateInternalNotes(inquiry.id, notesBody));
+
+  const handleArchive = () => runAction(() => archiveInquiry(inquiry.id));
+  const handleUnarchive = () => runAction(() => unarchiveInquiry(inquiry.id));
+
   return (
     <>
-      <tr className="align-top">
+      <tr className={`align-top ${isArchived ? "opacity-60" : ""}`}>
         <td className="px-4 py-3 text-zinc-700">
           {displayDate(inquiry.created_at)}
         </td>
@@ -277,16 +296,32 @@ export default function InquiryRow({
               >
                 {isPending ? "Drafting..." : "Re-draft"}
               </button>
+              <button
+                type="button"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
+              >
+                {isExpanded ? "Hide" : "View"}
+              </button>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={isPending}
-              className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPending ? "Drafting..." : "Draft reply"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isPending}
+                className="rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isPending ? "Drafting..." : "Draft reply"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsExpanded((v) => !v)}
+                className="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
+              >
+                {isExpanded ? "Hide" : "View"}
+              </button>
+            </div>
           )}
         </td>
       </tr>
@@ -294,7 +329,35 @@ export default function InquiryRow({
       {isExpanded && (
         <tr className="bg-zinc-50">
           <td colSpan={9} className="px-4 py-4">
-            <div className="space-y-3">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Internal notes (only visible here)
+                  </p>
+                  {notesDirty && (
+                    <button
+                      type="button"
+                      onClick={handleSaveNotes}
+                      disabled={isPending}
+                      className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isPending ? "Saving..." : "Save notes"}
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  value={notesBody}
+                  onChange={(e) => setNotesBody(e.target.value)}
+                  onBlur={() => {
+                    if (notesDirty) handleSaveNotes();
+                  }}
+                  rows={2}
+                  placeholder="Triage thoughts: referral source, red flags, anything Kenny should remember when responding."
+                  className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                />
+              </div>
+
               <div className="flex items-center justify-between">
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                   {isSent
@@ -334,15 +397,7 @@ export default function InquiryRow({
               {error && <p className="text-sm text-red-600">{error}</p>}
 
               <div className="flex flex-wrap items-center gap-2">
-                {isSent ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsExpanded(false)}
-                    className="ml-auto text-sm text-zinc-600 hover:text-zinc-900"
-                  >
-                    Close
-                  </button>
-                ) : (
+                {!isSent && (
                   <>
                     <button
                       type="button"
@@ -376,15 +431,23 @@ export default function InquiryRow({
                     >
                       Trash
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsExpanded(false)}
-                      className="ml-auto text-sm text-zinc-600 hover:text-zinc-900"
-                    >
-                      Close
-                    </button>
                   </>
                 )}
+                <button
+                  type="button"
+                  onClick={isArchived ? handleUnarchive : handleArchive}
+                  disabled={isPending}
+                  className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isArchived ? "Unarchive" : "Archive"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="text-sm text-zinc-600 hover:text-zinc-900"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </td>
