@@ -16,17 +16,64 @@ const ALLOWED_TYPES = [
 ] as const;
 type AllowedType = (typeof ALLOWED_TYPES)[number];
 
-const fileToBase64 = (file: File): Promise<string> =>
+// Phone photos are huge (3-5MB each); raw base64 of a few of them blows past
+// the server-action body size limit. Downsize to ~1024px and re-encode as JPEG
+// before sending — plenty of resolution for Claude to read a thumbnail.
+const MAX_DIM = 1024;
+const JPEG_QUALITY = 0.85;
+
+const loadImage = (file: File): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+
+const blobToBase64 = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      const base64 = result.split(",", 2)[1] ?? "";
-      resolve(base64);
+      resolve(result.split(",", 2)[1] ?? "");
     };
     reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(blob);
   });
+
+const resizeFileToBase64 = async (
+  file: File,
+): Promise<{ base64: string; mediaType: "image/jpeg" }> => {
+  const img = await loadImage(file);
+  const ratio = Math.min(MAX_DIM / img.width, MAX_DIM / img.height, 1);
+  const w = Math.max(1, Math.round(img.width * ratio));
+  const h = Math.max(1, Math.round(img.height * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Couldn't create canvas context for resize");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Couldn't encode resized image"))),
+      "image/jpeg",
+      JPEG_QUALITY,
+    );
+  });
+
+  const base64 = await blobToBase64(blob);
+  return { base64, mediaType: "image/jpeg" };
+};
 
 export default function EditPlanForm() {
   const [images, setImages] = useState<LocalImage[]>([]);
@@ -76,10 +123,7 @@ export default function EditPlanForm() {
     startTransition(async () => {
       try {
         const payload: EditPlanImage[] = await Promise.all(
-          images.map(async (img) => ({
-            base64: await fileToBase64(img.file),
-            mediaType: img.file.type as AllowedType,
-          })),
+          images.map((img) => resizeFileToBase64(img.file)),
         );
         const result = await generateEditPlan({
           brief,
