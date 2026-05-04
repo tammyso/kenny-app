@@ -16,6 +16,7 @@ import {
 import { fetchInvoiceStatus, sendInvoiceForShoot } from "@/lib/stripe";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { researchClient } from "@/lib/research";
+import { getSiteUrl } from "@/lib/site-url";
 import { triageInquiry, type TriageResult } from "@/lib/triage";
 
 type InquiryForPrompt = {
@@ -69,12 +70,6 @@ const requireUser = async () => {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authorized");
   return supabase;
-};
-
-const getSiteUrl = (): string => {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
 };
 
 type SubmitInquiryResult = { ok: true } | { ok: false; error: string };
@@ -467,6 +462,7 @@ export async function sendDraft(inquiryId: string, draftReply: string) {
 
 type InquiryForBooking = {
   client_name: string;
+  client_email: string;
   project_type: string | null;
   event_date: string | null;
   budget_range: string | null;
@@ -480,7 +476,7 @@ export async function bookShoot(inquiryId: string) {
   const { data: inquiry, error } = await supabase
     .from("inquiries")
     .select(
-      "client_name, project_type, event_date, budget_range, message, calendar_event_id",
+      "client_name, client_email, project_type, event_date, budget_range, message, calendar_event_id",
     )
     .eq("id", inquiryId)
     .single<InquiryForBooking>();
@@ -527,6 +523,35 @@ export async function bookShoot(inquiryId: string) {
     throw new Error(
       `Calendar event created, but failed to record: ${updateError.message}`,
     );
+  }
+
+  // Send the client a booking confirmation with their project room URL.
+  // Failure here is logged, not thrown — the booking itself succeeded.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const projectUrl = `${getSiteUrl()}/project/${inquiryId}`;
+      const projectLabel = inquiry.project_type ?? "shoot";
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Kenny <onboarding@resend.dev>",
+        to: inquiry.client_email,
+        subject: `Booking confirmed — your ${projectLabel.toLowerCase()} with Kenny`,
+        text: [
+          `Hi ${inquiry.client_name.split(" ")[0] ?? inquiry.client_name},`,
+          "",
+          `Your ${projectLabel.toLowerCase()} on ${inquiry.event_date} is on the books — looking forward to it.`,
+          "",
+          "I've set up a project page for you. It's the live status for everything from here on out — booking details, invoice, and (later) deliverables. Bookmark it and check back any time:",
+          "",
+          projectUrl,
+          "",
+          "Talk soon,",
+          "— Kenny",
+        ].join("\n"),
+      });
+    } catch (notifyErr) {
+      console.error("Booking confirmation failed:", notifyErr);
+    }
   }
 
   revalidatePath("/");
