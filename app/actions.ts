@@ -4,7 +4,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { createShootEvent, deleteRefreshToken } from "@/lib/google";
+import {
+  createShootEvent,
+  deleteRefreshToken,
+  getDayEvents,
+  type DayEvent,
+} from "@/lib/google";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 
 type InquiryForPrompt = {
@@ -16,19 +21,40 @@ type InquiryForPrompt = {
   message: string | null;
 };
 
-const formatInquiryForPrompt = (inquiry: InquiryForPrompt) =>
-  [
-    `Client name: ${inquiry.client_name}`,
-    `Client email: ${inquiry.client_email}`,
-    `Project type: ${inquiry.project_type ?? "not specified"}`,
-    `Event date: ${inquiry.event_date ?? "not specified"}`,
-    `Budget range: ${inquiry.budget_range ?? "not specified"}`,
-    "",
-    "Their message:",
-    inquiry.message?.trim() || "(no message)",
-    "",
-    "Draft a first-reply email body for Kenny to send to this client.",
+type CalendarContext =
+  | { state: "free" }
+  | { state: "busy"; events: DayEvent[] };
+
+const formatCalendarLine = (calendar: CalendarContext | null): string | null => {
+  if (!calendar) return null;
+  if (calendar.state === "free") {
+    return "Calendar: the requested date appears free on Kenny's calendar.";
+  }
+  return [
+    "Calendar: the requested date conflicts with these existing events on Kenny's calendar:",
+    ...calendar.events.map((e) => `- ${e.title} (${e.timeLabel})`),
   ].join("\n");
+};
+
+const formatInquiryForPrompt = (
+  inquiry: InquiryForPrompt,
+  calendar: CalendarContext | null,
+) => {
+  const sections: string[] = [
+    [
+      `Client name: ${inquiry.client_name}`,
+      `Client email: ${inquiry.client_email}`,
+      `Project type: ${inquiry.project_type ?? "not specified"}`,
+      `Event date: ${inquiry.event_date ?? "not specified"}`,
+      `Budget range: ${inquiry.budget_range ?? "not specified"}`,
+    ].join("\n"),
+    `Their message:\n${inquiry.message?.trim() || "(no message)"}`,
+  ];
+  const calendarLine = formatCalendarLine(calendar);
+  if (calendarLine) sections.push(calendarLine);
+  sections.push("Draft a first-reply email body for Kenny to send to this client.");
+  return sections.join("\n\n");
+};
 
 const requireUser = async () => {
   const supabase = await createSupabaseServerClient();
@@ -54,6 +80,16 @@ export async function generateDraft(inquiryId: string) {
     throw new Error("Inquiry not found");
   }
 
+  let calendar: CalendarContext | null = null;
+  if (inquiry.event_date) {
+    const events = await getDayEvents(inquiry.event_date);
+    if (events) {
+      calendar = events.length === 0
+        ? { state: "free" }
+        : { state: "busy", events };
+    }
+  }
+
   const client = new Anthropic();
   const response = await client.messages.create({
     model: "claude-opus-4-7",
@@ -65,7 +101,9 @@ export async function generateDraft(inquiryId: string) {
         cache_control: { type: "ephemeral" },
       },
     ],
-    messages: [{ role: "user", content: formatInquiryForPrompt(inquiry) }],
+    messages: [
+      { role: "user", content: formatInquiryForPrompt(inquiry, calendar) },
+    ],
   });
 
   const draftText = response.content
