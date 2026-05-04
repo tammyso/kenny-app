@@ -22,6 +22,14 @@ export type InquiryRowData = {
 
 const displayDate = (value: string | null) => {
   if (!value) return "-";
+  // For DATE columns ("YYYY-MM-DD"), parse as a calendar date — `new Date()`
+  // would interpret it as UTC midnight and shift it backward a day in any
+  // negative-UTC timezone, breaking the freebusy match on event_date.
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return `${parseInt(month, 10)}/${parseInt(day, 10)}/${year}`;
+  }
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString();
