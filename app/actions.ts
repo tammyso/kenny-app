@@ -1,9 +1,12 @@
 "use server";
 
 import Anthropic from "@anthropic-ai/sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import {
   createShootEvent,
   deleteRefreshToken,
@@ -104,38 +107,90 @@ export async function submitInquiry(
     .select("id")
     .single();
 
-  if (error) return { ok: false, error: "Couldn't submit. Please try again." };
+  if (error || !inserted) {
+    return { ok: false, error: "Couldn't submit. Please try again." };
+  }
 
-  // Notify the owner if configured. Failure here shouldn't block the submission
-  // — the inquiry is already saved, the dashboard will still pick it up.
-  if (process.env.OWNER_NOTIFICATION_EMAIL && process.env.RESEND_API_KEY) {
+  const inquiryId = inserted.id as string;
+  const inquirySummary = {
+    clientName,
+    clientEmail,
+    projectType,
+    eventDate,
+    budgetRange,
+    message,
+  };
+
+  // Auto-draft the AI reply and email Kenny — runs after the response goes out
+  // so the form-submitting client doesn't wait on Claude's ~10s round trip.
+  // Either step failing is logged and skipped, never blocks the submission.
+  after(async () => {
+    let draft: string | null = null;
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const lines = [
-        `New inquiry from ${clientName} <${clientEmail}>`,
-        "",
-        `Project type: ${projectType ?? "not specified"}`,
-        `Event date: ${eventDate ?? "not specified"}`,
-        `Budget range: ${budgetRange ?? "not specified"}`,
-        "",
-        "Message:",
-        message ?? "(no message)",
-        "",
-        `Open the dashboard: ${getSiteUrl()}/`,
-      ];
-      await resend.emails.send({
-        from: "Kenny App <onboarding@resend.dev>",
-        to: process.env.OWNER_NOTIFICATION_EMAIL,
-        subject: `New inquiry from ${clientName}`,
-        text: lines.join("\n"),
-      });
+      const admin = createSupabaseAdminClient();
+      draft = await runDraftGeneration({ inquiryId, supabase: admin });
+    } catch (draftErr) {
+      console.error("Auto-draft failed:", draftErr);
+    }
+    try {
+      await sendNewInquiryNotification(inquiryId, inquirySummary, draft);
     } catch (notifyErr) {
       console.error("Inquiry notification failed:", notifyErr);
     }
-  }
+  });
 
   revalidatePath("/");
   return { ok: true };
+}
+
+type InquirySummary = {
+  clientName: string;
+  clientEmail: string;
+  projectType: string | null;
+  eventDate: string | null;
+  budgetRange: string | null;
+  message: string | null;
+};
+
+async function sendNewInquiryNotification(
+  inquiryId: string,
+  summary: InquirySummary,
+  draft: string | null,
+) {
+  if (!process.env.OWNER_NOTIFICATION_EMAIL || !process.env.RESEND_API_KEY) {
+    return;
+  }
+
+  const lines = [
+    `New inquiry from ${summary.clientName} <${summary.clientEmail}>`,
+    "",
+    `Project type: ${summary.projectType ?? "not specified"}`,
+    `Event date: ${summary.eventDate ?? "not specified"}`,
+    `Budget range: ${summary.budgetRange ?? "not specified"}`,
+    "",
+    "Their message:",
+    summary.message ?? "(no message)",
+  ];
+  if (draft) {
+    lines.push(
+      "",
+      "— — —",
+      "AI draft reply (review and send from your dashboard):",
+      "",
+      draft,
+    );
+  }
+  lines.push("", `Open the dashboard: ${getSiteUrl()}/?inquiry=${inquiryId}`);
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({
+    from: "Kenny App <onboarding@resend.dev>",
+    to: process.env.OWNER_NOTIFICATION_EMAIL,
+    subject: draft
+      ? `New inquiry from ${summary.clientName} — draft ready`
+      : `New inquiry from ${summary.clientName}`,
+    text: lines.join("\n"),
+  });
 }
 
 export async function archiveInquiry(inquiryId: string) {
@@ -168,15 +223,20 @@ export async function updateInternalNotes(inquiryId: string, notes: string) {
   revalidatePath("/");
 }
 
-export async function generateDraft(inquiryId: string) {
-  const supabase = await requireUser();
-
-  const { data: inquiry, error } = await supabase
+// Core draft-generation routine, factored out so both the authenticated
+// "Draft reply" button and the unauthenticated /submit auto-draft flow can
+// reuse it. Caller supplies the supabase client so this works with either
+// the cookies-auth server client or the service-role admin client.
+async function runDraftGeneration(args: {
+  inquiryId: string;
+  supabase: SupabaseClient;
+}): Promise<string> {
+  const { data: inquiry, error } = await args.supabase
     .from("inquiries")
     .select(
       "client_name, client_email, project_type, event_date, budget_range, message",
     )
-    .eq("id", inquiryId)
+    .eq("id", args.inquiryId)
     .single<InquiryForPrompt>();
 
   if (error || !inquiry) {
@@ -185,11 +245,10 @@ export async function generateDraft(inquiryId: string) {
 
   let calendar: CalendarContext | null = null;
   if (inquiry.event_date) {
-    const events = await getDayEvents(inquiry.event_date);
+    const events = await getDayEvents(inquiry.event_date, args.supabase);
     if (events) {
-      calendar = events.length === 0
-        ? { state: "free" }
-        : { state: "busy", events };
+      calendar =
+        events.length === 0 ? { state: "free" } : { state: "busy", events };
     }
   }
 
@@ -219,19 +278,25 @@ export async function generateDraft(inquiryId: string) {
     throw new Error("Claude returned an empty draft");
   }
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await args.supabase
     .from("inquiries")
     .update({
       draft_reply: draftText,
       draft_status: "ready_to_send",
       draft_generated_at: new Date().toISOString(),
     })
-    .eq("id", inquiryId);
+    .eq("id", args.inquiryId);
 
   if (updateError) {
     throw new Error(`Failed to save draft: ${updateError.message}`);
   }
 
+  return draftText;
+}
+
+export async function generateDraft(inquiryId: string) {
+  const supabase = await requireUser();
+  await runDraftGeneration({ inquiryId, supabase });
   revalidatePath("/");
 }
 

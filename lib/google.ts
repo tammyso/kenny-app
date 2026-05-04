@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServerClient } from "./supabase-server";
 
 export const GOOGLE_SCOPES = [
@@ -7,6 +8,11 @@ export const GOOGLE_SCOPES = [
 
 const REFRESH_TOKEN_KEY = "google_refresh_token";
 
+// Some calendar reads run outside an authenticated user context (e.g. the
+// public /submit flow auto-drafts a calendar-aware reply). Callers in those
+// paths pass a service-role client so the app_settings RLS doesn't block.
+type Sb = SupabaseClient | Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
 export const createOAuthClient = (redirectUri: string) =>
   new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -14,9 +20,11 @@ export const createOAuthClient = (redirectUri: string) =>
     redirectUri,
   );
 
-export async function getStoredRefreshToken(): Promise<string | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+export async function getStoredRefreshToken(
+  supabase?: Sb,
+): Promise<string | null> {
+  const sb = supabase ?? (await createSupabaseServerClient());
+  const { data } = await sb
     .from("app_settings")
     .select("value")
     .eq("key", REFRESH_TOKEN_KEY)
@@ -43,8 +51,8 @@ export async function isCalendarConnected(): Promise<boolean> {
   return (await getStoredRefreshToken()) !== null;
 }
 
-async function getAuthedCalendarClient() {
-  const refreshToken = await getStoredRefreshToken();
+async function getAuthedCalendarClient(supabase?: Sb) {
+  const refreshToken = await getStoredRefreshToken(supabase);
   if (!refreshToken) return null;
   // The OAuth2 client refreshes the access token automatically when given a
   // refresh token; the redirect URI is irrelevant for token refresh.
@@ -105,8 +113,9 @@ function formatLocalTime(dateTime: string): string {
 
 export async function getDayEvents(
   dateString: string,
+  supabase?: Sb,
 ): Promise<DayEvent[] | null> {
-  const calendar = await getAuthedCalendarClient();
+  const calendar = await getAuthedCalendarClient(supabase);
   if (!calendar) return null;
 
   const start = new Date(`${dateString}T00:00:00.000Z`);
