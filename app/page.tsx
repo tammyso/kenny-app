@@ -1,27 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import SignOutButton from "./sign-out-button";
-
-type Inquiry = {
-  id: string;
-  created_at: string;
-  client_name: string;
-  client_email: string;
-  project_type: string | null;
-  event_date: string | null;
-  budget_range: string | null;
-  message: string | null;
-  status: string | null;
-};
-
-const displayDate = (value: string | null) => {
-  if (!value) return "-";
-
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) return value;
-
-  return parsedDate.toLocaleDateString();
-};
+import InquiryRow, { type InquiryRowData } from "./inquiry-row";
 
 export default async function Home() {
   const supabase = await createSupabaseServerClient();
@@ -37,11 +17,11 @@ export default async function Home() {
   const { data, error } = await supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at",
     )
     .order("created_at", { ascending: false });
 
-  const inquiries: Inquiry[] = data ?? [];
+  const inquiries: InquiryRowData[] = data ?? [];
 
   return (
     <main className="mx-auto w-full max-w-7xl px-6 py-12">
@@ -78,39 +58,19 @@ export default async function Home() {
                 <th className="px-4 py-3 font-semibold text-zinc-700">Budget</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Message</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Status</th>
+                <th className="px-4 py-3 font-semibold text-zinc-700">Draft</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 bg-white">
               {inquiries.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-8 text-zinc-500" colSpan={8}>
+                  <td className="px-4 py-8 text-zinc-500" colSpan={9}>
                     {error ? "Unable to load inquiries right now." : "No inquiries yet."}
                   </td>
                 </tr>
               ) : (
                 inquiries.map((inquiry) => (
-                  <tr key={inquiry.id} className="align-top">
-                    <td className="px-4 py-3 text-zinc-700">
-                      {displayDate(inquiry.created_at)}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-zinc-900">
-                      {inquiry.client_name}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-700">{inquiry.client_email}</td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {inquiry.project_type || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {displayDate(inquiry.event_date)}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-700">
-                      {inquiry.budget_range || "-"}
-                    </td>
-                    <td className="max-w-xs px-4 py-3 text-zinc-700">
-                      {inquiry.message || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-zinc-700">{inquiry.status || "new"}</td>
-                  </tr>
+                  <InquiryRow key={inquiry.id} inquiry={inquiry} />
                 ))
               )}
             </tbody>
