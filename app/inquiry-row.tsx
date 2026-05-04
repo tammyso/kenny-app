@@ -40,6 +40,7 @@ export type InquiryRowData = {
   triage_tag: string | null;
   triage_reason: string | null;
   client_research: string | null;
+  client_references: { url: string; mediaType: string }[] | null;
 };
 
 const displayDate = (value: string | null) => {
@@ -351,6 +352,32 @@ export default function InquiryRow({
         <tr className="bg-zinc-50">
           <td colSpan={9} className="px-4 py-4">
             <div className="space-y-4">
+              {inquiry.client_references && inquiry.client_references.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Client&apos;s reference images
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    {inquiry.client_references.map((ref, i) => (
+                      <a
+                        key={ref.url}
+                        href={ref.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={ref.url}
+                          alt={`Client reference ${i + 1}`}
+                          className="aspect-square w-full rounded-md border border-zinc-200 object-cover transition hover:opacity-80"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {inquiry.client_research && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">

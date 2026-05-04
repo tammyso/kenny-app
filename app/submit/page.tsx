@@ -4,6 +4,57 @@ import { useRef, useState, useTransition } from "react";
 import { submitInquiry } from "../actions";
 import { PORTFOLIO_ITEMS } from "@/lib/portfolio";
 import { KENNY_PROFILE } from "@/lib/profile";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+type LocalReference = {
+  file: File;
+  previewUrl: string;
+  uploadedUrl?: string;
+  mediaType?: string;
+};
+
+const MAX_REFERENCES = 5;
+const MAX_REF_DIM = 1600;
+const REF_QUALITY = 0.85;
+
+const REFERENCE_BUCKET = "inquiry-references";
+
+const loadImage = (file: File): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+
+const resizeToBlob = async (file: File): Promise<Blob> => {
+  const img = await loadImage(file);
+  const ratio = Math.min(MAX_REF_DIM / img.width, MAX_REF_DIM / img.height, 1);
+  const w = Math.max(1, Math.round(img.width * ratio));
+  const h = Math.max(1, Math.round(img.height * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Couldn't create canvas context");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error("Couldn't encode image"))),
+      "image/jpeg",
+      REF_QUALITY,
+    );
+  });
+};
 
 const PROJECT_TYPES = ["Wedding", "Brand", "Event", "Music Video", "Other"];
 const BUDGET_RANGES = [
@@ -19,17 +70,77 @@ export default function SubmitInquiryPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [didSubmit, setDidSubmit] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [references, setReferences] = useState<LocalReference[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleReferenceFiles = (files: FileList | null) => {
+    if (!files) return;
+    setErrorMessage("");
+    const accepted: LocalReference[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      accepted.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    setReferences((prev) => [...prev, ...accepted].slice(0, MAX_REFERENCES));
+  };
+
+  const removeReference = (idx: number) => {
+    setReferences((prev) => {
+      const target = prev[idx];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  const uploadReferences = async (): Promise<
+    { url: string; mediaType: string }[]
+  > => {
+    if (references.length === 0) return [];
+    const supabase = createSupabaseBrowserClient();
+    const uploaded: { url: string; mediaType: string }[] = [];
+    for (const [i, ref] of references.entries()) {
+      const blob = await resizeToBlob(ref.file);
+      const path = `${Date.now()}-${i}.jpg`;
+      const { data, error } = await supabase.storage
+        .from(REFERENCE_BUCKET)
+        .upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (error || !data) {
+        throw new Error(`Couldn't upload reference: ${error?.message}`);
+      }
+      const { data: urlData } = supabase.storage
+        .from(REFERENCE_BUCKET)
+        .getPublicUrl(data.path);
+      uploaded.push({ url: urlData.publicUrl, mediaType: "image/jpeg" });
+    }
+    return uploaded;
+  };
 
   const handleSubmit = (formData: FormData) => {
     setErrorMessage("");
     startTransition(async () => {
-      const result = await submitInquiry(formData);
-      if (!result.ok) {
-        setErrorMessage(result.error);
-        return;
+      try {
+        setIsUploading(true);
+        const uploaded = await uploadReferences();
+        setIsUploading(false);
+        if (uploaded.length > 0) {
+          formData.set("client_references", JSON.stringify(uploaded));
+        }
+        const result = await submitInquiry(formData);
+        if (!result.ok) {
+          setErrorMessage(result.error);
+          return;
+        }
+        setDidSubmit(true);
+        formRef.current?.reset();
+        references.forEach((r) => URL.revokeObjectURL(r.previewUrl));
+        setReferences([]);
+      } catch (err) {
+        setErrorMessage(
+          err instanceof Error ? err.message : "Something went wrong",
+        );
+      } finally {
+        setIsUploading(false);
       }
-      setDidSubmit(true);
-      formRef.current?.reset();
     });
   };
 
@@ -221,8 +332,47 @@ export default function SubmitInquiryPage() {
                   name="message"
                   rows={5}
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-zinc-100/20 transition placeholder:text-zinc-500 focus:ring-2"
-                  placeholder="Optional details about your project — date flexibility, location, references, anything that helps."
+                  placeholder="Optional details about your project — date flexibility, location, vibe, anything that helps."
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-200">
+                  Reference images
+                </label>
+                <p className="text-xs text-zinc-500">
+                  Pinterest pics, mood boards, screenshots — anything that
+                  shows the look you want. Up to {MAX_REFERENCES}.
+                </p>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleReferenceFiles(e.target.files)}
+                  className="block w-full text-sm text-zinc-300 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-900 hover:file:bg-white"
+                />
+                {references.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    {references.map((ref, i) => (
+                      <div key={ref.previewUrl} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={ref.previewUrl}
+                          alt={`Reference ${i + 1}`}
+                          className="aspect-square w-full rounded-md border border-zinc-800 object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeReference(i)}
+                          className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white hover:bg-black"
+                          aria-label={`Remove reference ${i + 1}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {errorMessage && (
@@ -236,7 +386,11 @@ export default function SubmitInquiryPage() {
                 disabled={isPending}
                 className="inline-flex h-10 items-center justify-center rounded-lg bg-zinc-100 px-5 text-sm font-medium text-zinc-900 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPending ? "Sending..." : "Send inquiry"}
+                {isUploading
+                  ? "Uploading..."
+                  : isPending
+                    ? "Sending..."
+                    : "Send inquiry"}
               </button>
             </form>
           </div>

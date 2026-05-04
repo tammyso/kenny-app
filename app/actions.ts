@@ -91,6 +91,24 @@ export async function submitInquiry(
   if (!clientName) return { ok: false, error: "Name is required" };
   if (!clientEmail) return { ok: false, error: "Email is required" };
 
+  // Reference URLs are uploaded client-side to Supabase Storage; the form
+  // arrives with a JSON-encoded list of {url, mediaType}.
+  let references: { url: string; mediaType: string }[] | null = null;
+  const referencesRaw = String(formData.get("client_references") ?? "");
+  if (referencesRaw) {
+    try {
+      const parsed = JSON.parse(referencesRaw);
+      if (
+        Array.isArray(parsed) &&
+        parsed.every((r) => r?.url && r?.mediaType)
+      ) {
+        references = parsed;
+      }
+    } catch {
+      /* ignore — proceed without references */
+    }
+  }
+
   const { data: inserted, error } = await supabase
     .from("inquiries")
     .insert({
@@ -100,6 +118,7 @@ export async function submitInquiry(
       event_date: eventDate,
       budget_range: budgetRange,
       message,
+      client_references: references,
     })
     .select("id")
     .single();
@@ -299,6 +318,10 @@ export async function updateInternalNotes(inquiryId: string, notes: string) {
   revalidatePath("/");
 }
 
+type InquiryForPromptWithRefs = InquiryForPrompt & {
+  client_references: { url: string; mediaType: string }[] | null;
+};
+
 // Core draft-generation routine, factored out so both the authenticated
 // "Draft reply" button and the unauthenticated /submit auto-draft flow can
 // reuse it. Caller supplies the supabase client so this works with either
@@ -310,10 +333,10 @@ async function runDraftGeneration(args: {
   const { data: inquiry, error } = await args.supabase
     .from("inquiries")
     .select(
-      "client_name, client_email, project_type, event_date, budget_range, message",
+      "client_name, client_email, project_type, event_date, budget_range, message, client_references",
     )
     .eq("id", args.inquiryId)
-    .single<InquiryForPrompt>();
+    .single<InquiryForPromptWithRefs>();
 
   if (error || !inquiry) {
     throw new Error("Inquiry not found");
@@ -328,6 +351,28 @@ async function runDraftGeneration(args: {
     }
   }
 
+  // If the client attached reference images, prepend them to the user message
+  // so Claude can ground tone in the look they're after.
+  const userContent: Anthropic.ContentBlockParam[] = [];
+  const refs = inquiry.client_references ?? [];
+  if (refs.length > 0) {
+    userContent.push({
+      type: "text",
+      text: `The client attached ${refs.length} reference image${refs.length === 1 ? "" : "s"} showing the look they're after:`,
+    });
+    for (const ref of refs) {
+      userContent.push({
+        type: "image",
+        source: { type: "url", url: ref.url },
+      });
+    }
+    userContent.push({ type: "text", text: "" });
+  }
+  userContent.push({
+    type: "text",
+    text: formatInquiryForPrompt(inquiry, calendar),
+  });
+
   const client = new Anthropic();
   const response = await client.messages.create({
     model: "claude-opus-4-7",
@@ -339,9 +384,7 @@ async function runDraftGeneration(args: {
         cache_control: { type: "ephemeral" },
       },
     ],
-    messages: [
-      { role: "user", content: formatInquiryForPrompt(inquiry, calendar) },
-    ],
+    messages: [{ role: "user", content: userContent }],
   });
 
   const draftText = response.content
