@@ -42,19 +42,14 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-zinc-950">
       <main className="mx-auto w-full max-w-3xl px-6 py-16">
-        <nav className="mb-12 flex items-center justify-between">
-          <span className="text-sm font-medium uppercase tracking-wider text-zinc-500">
-            Kenny
-          </span>
-          <div className="flex items-center gap-5 text-sm">
-            <Link
-              href="/submit"
-              className="text-zinc-300 underline-offset-2 hover:text-zinc-50 hover:underline"
-            >
-              Work + contact
-            </Link>
-            <span className="text-zinc-50">About</span>
-          </div>
+        <nav className="mb-12 flex items-center justify-end gap-5 text-sm">
+          <Link
+            href="/submit"
+            className="text-zinc-300 underline-offset-2 hover:text-zinc-50 hover:underline"
+          >
+            Work + contact
+          </Link>
+          <span className="text-zinc-50">About</span>
         </nav>
 
         <div className="mb-12 max-w-2xl">
