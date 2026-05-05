@@ -9,13 +9,77 @@ import { disconnectCalendar } from "./actions";
 type NavItem = {
   href: string;
   label: string;
+  icon: React.ReactNode;
   matchExact?: boolean;
 };
 
+const iconClass = "h-4 w-4 shrink-0";
+
 const NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Inquiries", matchExact: true },
-  { href: "/prospects", label: "Brand prospects" },
-  { href: "/edit-plan", label: "Template planner" },
+  {
+    href: "/",
+    label: "Inquiries",
+    matchExact: true,
+    icon: (
+      <svg
+        className={iconClass}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+        <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/prospects",
+    label: "Brand Prospects",
+    icon: (
+      <svg
+        className={iconClass}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M3 21h18" />
+        <path d="M5 21V7l8-4v18" />
+        <path d="M19 21V11l-6-4" />
+        <path d="M9 9v.01" />
+        <path d="M9 12v.01" />
+        <path d="M9 15v.01" />
+        <path d="M9 18v.01" />
+      </svg>
+    ),
+  },
+  {
+    href: "/edit-plan",
+    label: "Template Planner",
+    icon: (
+      <svg
+        className={iconClass}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <rect x="2" y="6" width="20" height="14" rx="2" />
+        <path d="m17 14-5-3-5 3V8h10z" />
+        <path d="M2 6 4 2h16l2 4" />
+      </svg>
+    ),
+  },
 ];
 
 const isActive = (pathname: string, item: NavItem) =>
@@ -47,13 +111,14 @@ export default function AppShell({
               key={item.href}
               href={item.href}
               onClick={() => setIsMobileOpen(false)}
-              className={`block rounded-md px-3 py-2 text-sm font-medium transition ${
+              className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition ${
                 active
                   ? "bg-zinc-900 text-white"
                   : "text-zinc-700 hover:bg-zinc-100"
               }`}
             >
-              {item.label}
+              {item.icon}
+              <span>{item.label}</span>
             </Link>
           );
         })}
