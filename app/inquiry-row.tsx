@@ -13,8 +13,10 @@ import {
   sendDraft,
   sendInvoice,
   sendReviewRequest,
+  snoozeInquiry,
   trashDraft,
   unarchiveInquiry,
+  unsnoozeInquiry,
   updateInternalNotes,
 } from "./actions";
 import type { DayEvent } from "@/lib/google";
@@ -52,6 +54,7 @@ export type InquiryRowData = {
   pre_shoot_responses: Record<string, string> | null;
   pre_shoot_completed_at: string | null;
   deliverable_url: string | null;
+  snoozed_until: string | null;
 };
 
 function ActivityFeed({ inquiry }: { inquiry: InquiryRowData }) {
@@ -229,6 +232,43 @@ export default function InquiryRow({
     runAction(() => archiveInquiry(inquiry.id), "Archived");
   const handleUnarchive = () =>
     runAction(() => unarchiveInquiry(inquiry.id), "Restored");
+
+  const handleSnooze = () => {
+    const days = prompt(
+      `Snooze ${inquiry.client_name} for how many days?`,
+      "7",
+    );
+    if (!days) return;
+    const n = parseInt(days, 10);
+    if (Number.isNaN(n) || n <= 0) {
+      alert("Enter a positive number of days.");
+      return;
+    }
+    const until = new Date();
+    until.setDate(until.getDate() + n);
+    runAction(
+      () => snoozeInquiry(inquiry.id, until.toISOString()),
+      `Snoozed for ${n} day${n === 1 ? "" : "s"}`,
+    );
+  };
+  const handleUnsnooze = () =>
+    runAction(() => unsnoozeInquiry(inquiry.id), "Unsnoozed");
+
+  const isSnoozed = Boolean(
+    inquiry.snoozed_until && new Date(inquiry.snoozed_until) > new Date(),
+  );
+
+  const gmailComposeUrl = (() => {
+    const subject = encodeURIComponent(
+      inquiry.project_type
+        ? `Re: your ${inquiry.project_type.toLowerCase()} inquiry`
+        : "Re: your inquiry",
+    );
+    const body = encodeURIComponent(draftBody || inquiry.draft_reply || "");
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+      inquiry.client_email,
+    )}&su=${subject}&body=${body}`;
+  })();
   const handleDelete = () => {
     if (
       !confirm(
@@ -287,6 +327,15 @@ export default function InquiryRow({
                 className="inline-flex w-fit items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
               >
                 Low priority
+              </span>
+            )}
+            {isSnoozed && inquiry.snoozed_until && (
+              <span className="inline-flex w-fit items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                Snoozed until{" "}
+                {new Date(inquiry.snoozed_until).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })}
               </span>
             )}
           </div>
@@ -628,6 +677,16 @@ export default function InquiryRow({
                     >
                       {isPending ? "Sending..." : "Send to client"}
                     </button>
+                    {draftBody.trim() && (
+                      <a
+                        href={gmailComposeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+                      >
+                        Open in Gmail
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={handleSave}
@@ -681,9 +740,17 @@ export default function InquiryRow({
                 )}
                 <button
                   type="button"
-                  onClick={isArchived ? handleUnarchive : handleArchive}
+                  onClick={isSnoozed ? handleUnsnooze : handleSnooze}
                   disabled={isPending}
                   className={`rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60${isPaid || isDelivered || reviewRequested ? "" : " ml-auto"}`}
+                >
+                  {isSnoozed ? "Unsnooze" : "Snooze"}
+                </button>
+                <button
+                  type="button"
+                  onClick={isArchived ? handleUnarchive : handleArchive}
+                  disabled={isPending}
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isArchived ? "Unarchive" : "Archive"}
                 </button>

@@ -309,6 +309,40 @@ export async function unarchiveInquiry(inquiryId: string) {
   revalidatePath("/");
 }
 
+export async function snoozeInquiry(inquiryId: string, untilIso: string) {
+  const supabase = await requireUser();
+  // Validate the date string parses cleanly so we don't write garbage.
+  const parsed = new Date(untilIso);
+  if (isNaN(parsed.getTime())) throw new Error("Invalid snooze date");
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ snoozed_until: parsed.toISOString() })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to snooze: ${error.message}`);
+  revalidatePath("/");
+}
+
+export async function unsnoozeInquiry(inquiryId: string) {
+  const supabase = await requireUser();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ snoozed_until: null })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to unsnooze: ${error.message}`);
+  revalidatePath("/");
+}
+
+export async function bulkDeleteInquiries(inquiryIds: string[]) {
+  const supabase = await requireUser();
+  if (inquiryIds.length === 0) return;
+  const { error } = await supabase
+    .from("inquiries")
+    .delete()
+    .in("id", inquiryIds);
+  if (error) throw new Error(`Failed to delete: ${error.message}`);
+  revalidatePath("/");
+}
+
 export async function deleteInquiry(inquiryId: string) {
   const supabase = await requireUser();
   const { error } = await supabase

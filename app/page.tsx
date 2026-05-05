@@ -9,6 +9,7 @@ import AppShell from "./app-shell";
 import InquiryRow, { type InquiryRowData } from "./inquiry-row";
 import DashboardBoard from "./dashboard-board";
 import DashboardStatsPanel from "./dashboard-stats";
+import DashboardToolbar from "./dashboard-toolbar";
 import { computeDashboardStats } from "@/lib/stats";
 
 const calendarBannerCopy = (status: string | undefined, message: string | undefined) => {
@@ -49,6 +50,9 @@ export default async function Home({
     message?: string;
     archived?: string;
     view?: string;
+    q?: string;
+    filter?: string;
+    snoozed?: string;
   }>;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -65,18 +69,46 @@ export default async function Home({
   const banner = calendarBannerCopy(params.calendar, params.message);
   const calendarConnected = await isCalendarConnected();
   const showingArchived = params.archived === "1";
+  const showingSnoozed = params.snoozed === "1";
   const isBoardView = params.view === "board";
+  const searchQ = (params.q ?? "").trim();
+  const activeFilter = params.filter ?? null;
 
-  const baseQuery = supabase
+  let query = supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes, triage_tag, triage_reason, client_research, client_references, booked_at, invoice_sent_at, delivered_at, review_requested_at, pre_shoot_responses, pre_shoot_completed_at, deliverable_url",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes, triage_tag, triage_reason, client_research, client_references, booked_at, invoice_sent_at, delivered_at, review_requested_at, pre_shoot_responses, pre_shoot_completed_at, deliverable_url, snoozed_until",
     )
     .order("created_at", { ascending: false });
 
-  const { data, error } = await (showingArchived
-    ? baseQuery.not("archived_at", "is", null)
-    : baseQuery.is("archived_at", null));
+  query = showingArchived
+    ? query.not("archived_at", "is", null)
+    : query.is("archived_at", null);
+
+  // Snoozed inquiries are hidden from default active view until their date
+  // arrives, but a "Snoozed" view (?snoozed=1) shows them explicitly.
+  const nowIso = new Date().toISOString();
+  if (!showingArchived) {
+    query = showingSnoozed
+      ? query.gt("snoozed_until", nowIso)
+      : query.or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`);
+  }
+
+  if (searchQ) {
+    query = query.or(
+      `client_name.ilike.%${searchQ}%,client_email.ilike.%${searchQ}%,project_type.ilike.%${searchQ}%`,
+    );
+  }
+
+  if (activeFilter === "flagged") {
+    query = query.eq("triage_tag", "flagged");
+  } else if (activeFilter === "paid") {
+    query = query.eq("invoice_status", "paid");
+  } else if (activeFilter === "unpaid") {
+    query = query.eq("invoice_status", "open");
+  }
+
+  const { data, error } = await query;
 
   const inquiries: InquiryRowData[] = data ?? [];
 
@@ -121,7 +153,9 @@ export default async function Home({
               ? "There was a problem loading inquiries."
               : showingArchived
                 ? `Showing ${inquiries.length} archived ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`
-                : `Showing ${inquiries.length} active ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`}
+                : showingSnoozed
+                  ? `Showing ${inquiries.length} snoozed ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`
+                  : `Showing ${inquiries.length} active ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -149,20 +183,25 @@ export default async function Home({
               Board
             </a>
           </div>
-          <a
-            href={
-              showingArchived
-                ? isBoardView
-                  ? "/?view=board"
-                  : "/"
-                : isBoardView
-                  ? "/?archived=1&view=board"
-                  : "/?archived=1"
-            }
-            className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
-          >
-            {showingArchived ? "Active" : "Archived"}
-          </a>
+          <div className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white p-0.5 text-sm font-medium">
+            {[
+              { label: "Active", href: isBoardView ? "/?view=board" : "/", isActive: !showingArchived && !showingSnoozed },
+              { label: "Snoozed", href: isBoardView ? "/?snoozed=1&view=board" : "/?snoozed=1", isActive: showingSnoozed },
+              { label: "Archived", href: isBoardView ? "/?archived=1&view=board" : "/?archived=1", isActive: showingArchived },
+            ].map((view) => (
+              <a
+                key={view.label}
+                href={view.href}
+                className={`inline-flex h-full items-center rounded-md px-3 transition ${
+                  view.isActive
+                    ? "bg-zinc-900 text-white"
+                    : "text-zinc-700 hover:bg-zinc-50"
+                }`}
+              >
+                {view.label}
+              </a>
+            ))}
+          </div>
           <a
             href="/submit"
             className="inline-flex h-10 items-center rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700"
@@ -184,7 +223,11 @@ export default async function Home({
         </div>
       )}
 
-      {!showingArchived && <DashboardStatsPanel stats={stats} />}
+      {!showingArchived && !showingSnoozed && (
+        <DashboardStatsPanel stats={stats} />
+      )}
+
+      {!isBoardView && <DashboardToolbar />}
 
       {isBoardView ? (
         <DashboardBoard inquiries={inquiries} />

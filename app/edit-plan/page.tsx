@@ -17,7 +17,7 @@ export default async function EditPlanPage() {
     <AppShell calendarConnected={calendarConnected}>
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-zinc-900">Edit plan</h1>
+          <h1 className="text-3xl font-semibold text-zinc-900">Cut planner</h1>
           <p className="mt-2 text-sm text-zinc-600">
             Upload key thumbnails from a shoot and a short brief. Get back a
             structured plan to drop into a Premiere timeline.
