@@ -294,7 +294,7 @@ export default function SubmitInquiryPage() {
                     name="event_date"
                     type="date"
                     style={{ colorScheme: "dark" }}
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-zinc-100/20 transition focus:ring-2"
+                    className="dark-input w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-zinc-100/20 transition focus:ring-2"
                   />
                 </div>
               </div>

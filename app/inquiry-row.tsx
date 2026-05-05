@@ -89,7 +89,7 @@ function ActivityFeed({ inquiry }: { inquiry: InquiryRowData }) {
           <li key={i} className="flex justify-between gap-4">
             <span>{e.label}</span>
             <span className="text-xs text-zinc-500">
-              {new Date(e.at).toLocaleString(undefined, {
+              {new Date(e.at).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
                 hour: "numeric",

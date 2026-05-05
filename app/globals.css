@@ -13,3 +13,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   color-scheme: light;
 }
+
+/* Date inputs marked .dark-input get a light-on-dark calendar picker icon.
+   color-scheme alone doesn't work in Safari, so we force-invert the
+   webkit calendar picker indicator. */
+.dark-input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2);
+  cursor: pointer;
+}
