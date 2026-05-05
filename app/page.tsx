@@ -8,6 +8,8 @@ import {
 import SignOutButton from "./sign-out-button";
 import InquiryRow, { type InquiryRowData } from "./inquiry-row";
 import DashboardBoard from "./dashboard-board";
+import DashboardStatsPanel from "./dashboard-stats";
+import { computeDashboardStats } from "@/lib/stats";
 import { disconnectCalendar } from "./actions";
 
 const calendarBannerCopy = (status: string | undefined, message: string | undefined) => {
@@ -78,6 +80,17 @@ export default async function Home({
     : baseQuery.is("archived_at", null));
 
   const inquiries: InquiryRowData[] = data ?? [];
+
+  // Stats reflect every inquiry (including archived) — archiving hides from
+  // the main view, doesn't mean "didn't earn money."
+  const { data: allInquiriesForStats } = await supabase
+    .from("inquiries")
+    .select(
+      "id, created_at, project_type, invoice_amount_cents, invoice_status, invoice_sent_at",
+    );
+  const stats = computeDashboardStats(
+    (allInquiriesForStats ?? []) as InquiryRowData[],
+  );
 
   const eventsByDate = new Map<string, DayEvent[] | null>();
   if (calendarConnected) {
@@ -204,6 +217,8 @@ export default async function Home({
         </div>
       )}
 
+      {!showingArchived && <DashboardStatsPanel stats={stats} />}
+
       {isBoardView ? (
         <DashboardBoard inquiries={inquiries} />
       ) : (
@@ -212,13 +227,13 @@ export default async function Home({
           <table className="min-w-full divide-y divide-zinc-200 text-left text-sm">
             <thead className="bg-zinc-50">
               <tr>
-                <th className="px-4 py-3 font-semibold text-zinc-700">Date Submitted</th>
+                <th className="hidden px-4 py-3 font-semibold text-zinc-700 lg:table-cell">Date Submitted</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Name</th>
-                <th className="px-4 py-3 font-semibold text-zinc-700">Email</th>
-                <th className="px-4 py-3 font-semibold text-zinc-700">Project Type</th>
+                <th className="hidden px-4 py-3 font-semibold text-zinc-700 lg:table-cell">Email</th>
+                <th className="hidden px-4 py-3 font-semibold text-zinc-700 sm:table-cell">Project Type</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Event Date</th>
-                <th className="px-4 py-3 font-semibold text-zinc-700">Budget</th>
-                <th className="px-4 py-3 font-semibold text-zinc-700">Message</th>
+                <th className="hidden px-4 py-3 font-semibold text-zinc-700 lg:table-cell">Budget</th>
+                <th className="hidden px-4 py-3 font-semibold text-zinc-700 xl:table-cell">Message</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Status</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Draft</th>
               </tr>

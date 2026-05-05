@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   archiveInquiry,
   bookShoot,
@@ -142,13 +143,20 @@ export default function InquiryRow({
   const isArchived = Boolean(inquiry.archived_at);
   const notesDirty = notesBody !== (inquiry.internal_notes ?? "");
 
-  const runAction = (action: () => Promise<void>) => {
+  const runAction = (
+    action: () => Promise<void>,
+    successMessage?: string,
+  ) => {
     setError(null);
     startTransition(async () => {
       try {
         await action();
+        if (successMessage) toast.success(successMessage);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        const msg =
+          err instanceof Error ? err.message : "Something went wrong";
+        setError(msg);
+        toast.error(msg);
       }
     });
   };
@@ -162,10 +170,11 @@ export default function InquiryRow({
 
   const handleSend = () => {
     if (!confirm(`Send this reply to ${inquiry.client_email}?`)) return;
-    runAction(() => sendDraft(inquiry.id, draftBody));
+    runAction(() => sendDraft(inquiry.id, draftBody), "Reply sent to client");
   };
 
-  const handleTrash = () => runAction(() => trashDraft(inquiry.id));
+  const handleTrash = () =>
+    runAction(() => trashDraft(inquiry.id), "Draft trashed");
 
   const isBooked =
     inquiry.status === "booked" && Boolean(inquiry.calendar_event_link);
@@ -180,7 +189,7 @@ export default function InquiryRow({
     ) {
       return;
     }
-    runAction(() => bookShoot(inquiry.id));
+    runAction(() => bookShoot(inquiry.id), "Shoot booked");
   };
 
   const handleSendInvoice = () => {
@@ -199,12 +208,14 @@ export default function InquiryRow({
       defaultDescription,
     );
     if (!description) return;
-    runAction(() =>
-      sendInvoice({
-        inquiryId: inquiry.id,
-        amountCents: Math.round(amount * 100),
-        description,
-      }),
+    runAction(
+      () =>
+        sendInvoice({
+          inquiryId: inquiry.id,
+          amountCents: Math.round(amount * 100),
+          description,
+        }),
+      "Invoice sent",
     );
   };
 
@@ -214,8 +225,10 @@ export default function InquiryRow({
   const handleSaveNotes = () =>
     runAction(() => updateInternalNotes(inquiry.id, notesBody));
 
-  const handleArchive = () => runAction(() => archiveInquiry(inquiry.id));
-  const handleUnarchive = () => runAction(() => unarchiveInquiry(inquiry.id));
+  const handleArchive = () =>
+    runAction(() => archiveInquiry(inquiry.id), "Archived");
+  const handleUnarchive = () =>
+    runAction(() => unarchiveInquiry(inquiry.id), "Restored");
   const handleDelete = () => {
     if (
       !confirm(
@@ -224,7 +237,7 @@ export default function InquiryRow({
     ) {
       return;
     }
-    runAction(() => deleteInquiry(inquiry.id));
+    runAction(() => deleteInquiry(inquiry.id), "Deleted");
   };
 
   const isPaid = inquiry.invoice_status === "paid";
@@ -237,7 +250,7 @@ export default function InquiryRow({
       inquiry.deliverable_url ?? "",
     );
     if (!url || !url.trim()) return;
-    runAction(() => deliverShoot(inquiry.id, url));
+    runAction(() => deliverShoot(inquiry.id, url), "Marked delivered");
   };
 
   const handleSendReview = () => {
@@ -248,13 +261,13 @@ export default function InquiryRow({
     ) {
       return;
     }
-    runAction(() => sendReviewRequest(inquiry.id));
+    runAction(() => sendReviewRequest(inquiry.id), "Review request sent");
   };
 
   return (
     <>
       <tr className={`align-top ${isArchived ? "opacity-60" : ""}`}>
-        <td className="px-4 py-3 text-zinc-700">
+        <td className="hidden px-4 py-3 text-zinc-700 lg:table-cell">
           {displayDate(inquiry.created_at)}
         </td>
         <td className="px-4 py-3 font-medium text-zinc-900">
@@ -278,8 +291,8 @@ export default function InquiryRow({
             )}
           </div>
         </td>
-        <td className="px-4 py-3 text-zinc-700">{inquiry.client_email}</td>
-        <td className="px-4 py-3 text-zinc-700">
+        <td className="hidden px-4 py-3 text-zinc-700 lg:table-cell">{inquiry.client_email}</td>
+        <td className="hidden px-4 py-3 text-zinc-700 sm:table-cell">
           {inquiry.project_type || "-"}
         </td>
         <td className="px-4 py-3 text-zinc-700">
@@ -328,10 +341,10 @@ export default function InquiryRow({
             )}
           </div>
         </td>
-        <td className="px-4 py-3 text-zinc-700">
+        <td className="hidden px-4 py-3 text-zinc-700 lg:table-cell">
           {inquiry.budget_range || "-"}
         </td>
-        <td className="max-w-xs px-4 py-3 text-zinc-700">
+        <td className="hidden max-w-xs px-4 py-3 text-zinc-700 xl:table-cell">
           {inquiry.message || "-"}
         </td>
         <td className="px-4 py-3 text-zinc-700">
