@@ -176,8 +176,10 @@ export default function SubmitInquiryPage() {
           <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
             Videographer
           </p>
-          <h1 className="mt-3 text-4xl font-semibold text-zinc-50">Kenny</h1>
-          <p className="mt-4 text-base text-zinc-300">
+          <h1 className="mt-3 text-5xl font-semibold text-zinc-50 sm:text-6xl">
+            Kenny
+          </h1>
+          <p className="mt-5 text-lg text-zinc-300">
             Brand films, weddings, music videos, and events. I work with a small
             roster of clients on retainers and one-offs that lean into story
             over polish.
@@ -202,11 +204,11 @@ export default function SubmitInquiryPage() {
                     className="h-full w-full object-cover transition group-hover:scale-[1.02]"
                   />
                 </div>
-                <figcaption className="px-3 py-2.5">
-                  <p className="text-sm font-medium text-zinc-100">
+                <figcaption className="px-3 py-3">
+                  <p className="text-base font-medium text-zinc-100">
                     {item.title}
                   </p>
-                  <p className="text-xs text-zinc-500">{item.subtitle}</p>
+                  <p className="text-sm text-zinc-500">{item.subtitle}</p>
                 </figcaption>
               </figure>
             ))}
@@ -218,7 +220,7 @@ export default function SubmitInquiryPage() {
             <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
               Get in touch
             </p>
-            <p className="mt-3 text-base text-zinc-300">
+            <p className="mt-3 text-lg text-zinc-300">
               Have a project in mind? Share a few details and I&apos;ll be in
               touch within a day or two.
             </p>

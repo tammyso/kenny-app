@@ -2,7 +2,7 @@
 // real values come in — no env vars needed.
 
 export const KENNY_PROFILE = {
-  city: "Los Angeles", // change to Kenny's actual city
+  city: "New York", // change to Kenny's actual city
   email: "hello@kenny.com", // change to Kenny's actual email
   socials: [
     { label: "Instagram", handle: "@kenny.video", href: "https://instagram.com/kenny.video" },
