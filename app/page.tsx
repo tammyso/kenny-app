@@ -203,12 +203,15 @@ export default async function Home({
                 <th className="hidden px-4 py-3 font-semibold text-zinc-700 xl:table-cell">Message</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Status</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">Draft</th>
+                <th className="px-4 py-3 text-right font-semibold text-zinc-700">
+                  <span className="sr-only">Delete</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 bg-white">
               {inquiries.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-12 text-center text-sm text-zinc-500" colSpan={9}>
+                  <td className="px-4 py-12 text-center text-sm text-zinc-500" colSpan={10}>
                     {error ? (
                       "Unable to load inquiries right now."
                     ) : showingArchived ? (

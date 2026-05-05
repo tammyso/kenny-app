@@ -449,11 +449,30 @@ export default function InquiryRow({
             </div>
           )}
         </td>
+        <td className="px-4 py-3 text-right">
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isPending}
+            aria-label={`Delete inquiry from ${inquiry.client_name}`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path d="M5.5 1a.5.5 0 0 0-.5.5V2H2.5a.5.5 0 0 0 0 1h.538l.804 10.034A1.5 1.5 0 0 0 5.337 14.5h5.327a1.5 1.5 0 0 0 1.495-1.466L12.962 3H13.5a.5.5 0 0 0 0-1H11v-.5a.5.5 0 0 0-.5-.5h-5zM6 2h4v.5H6V2zm.46 3a.5.5 0 0 1 .54.46l.5 6a.5.5 0 1 1-1 .08l-.5-6A.5.5 0 0 1 6.46 5zm3.08 0a.5.5 0 0 1 .46.54l-.5 6a.5.5 0 1 1-1-.08l.5-6a.5.5 0 0 1 .54-.46z" />
+            </svg>
+          </button>
+        </td>
       </tr>
 
       {isExpanded && (
         <tr className="bg-zinc-50">
-          <td colSpan={9} className="px-4 py-4">
+          <td colSpan={10} className="px-4 py-4">
             <div className="space-y-4">
               <ActivityFeed inquiry={inquiry} />
 
