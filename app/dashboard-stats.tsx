@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -11,7 +12,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { DashboardStats } from "@/lib/stats";
+import type { DashboardStats, RevenueBucket } from "@/lib/stats";
+
+type RangeKey = "6m" | "12m" | "all";
+
+const RANGE_LABELS: Record<RangeKey, string> = {
+  "6m": "6 months",
+  "12m": "1 year",
+  all: "All time",
+};
 
 const formatDollars = (cents: number) =>
   cents === 0
@@ -26,6 +35,14 @@ export default function DashboardStatsPanel({
   stats: DashboardStats;
 }) {
   const hasAnyRevenue = stats.totalRevenueCents > 0;
+  const [range, setRange] = useState<RangeKey>("6m");
+
+  const buckets: RevenueBucket[] =
+    range === "6m"
+      ? stats.monthlyRevenue6m
+      : range === "12m"
+        ? stats.monthlyRevenue12m
+        : stats.yearlyRevenueAllTime;
 
   return (
     <section className="mb-8 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -42,20 +59,38 @@ export default function DashboardStatsPanel({
       {hasAnyRevenue ? (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">
-              Last 6 months
-            </p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                Revenue
+              </p>
+              <div className="inline-flex items-center rounded-md border border-zinc-200 bg-white p-0.5 text-xs font-medium">
+                {(["6m", "12m", "all"] as RangeKey[]).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setRange(key)}
+                    className={`rounded px-2.5 py-1 transition ${
+                      range === key
+                        ? "bg-zinc-900 text-white"
+                        : "text-zinc-600 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {RANGE_LABELS[key]}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={stats.monthlyRevenue.map((m) => ({
-                    month: m.month,
+                  data={buckets.map((m) => ({
+                    label: m.label,
                     revenue: m.revenueCents / 100,
                   }))}
                   margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
                 >
                   <XAxis
-                    dataKey="month"
+                    dataKey="label"
                     stroke="#71717a"
                     fontSize={12}
                     tickLine={false}
