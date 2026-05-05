@@ -15,9 +15,14 @@ body {
 }
 
 /* Date inputs marked .dark-input get a light-on-dark calendar picker icon.
-   color-scheme alone doesn't work in Safari, so we force-invert the
-   webkit calendar picker indicator. */
+   Setting color-scheme on the input itself + force-inverting the webkit
+   picker indicator handles both Chrome and Safari. !important to override
+   any tailwind reset / specificity battles. */
+.dark-input {
+  color-scheme: dark;
+}
 .dark-input::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(2);
+  filter: invert(1) !important;
+  opacity: 1 !important;
   cursor: pointer;
 }
