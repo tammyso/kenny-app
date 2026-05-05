@@ -5,12 +5,11 @@ import {
   isCalendarConnected,
   type DayEvent,
 } from "@/lib/google";
-import SignOutButton from "./sign-out-button";
+import AppShell from "./app-shell";
 import InquiryRow, { type InquiryRowData } from "./inquiry-row";
 import DashboardBoard from "./dashboard-board";
 import DashboardStatsPanel from "./dashboard-stats";
 import { computeDashboardStats } from "@/lib/stats";
-import { disconnectCalendar } from "./actions";
 
 const calendarBannerCopy = (status: string | undefined, message: string | undefined) => {
   switch (status) {
@@ -112,10 +111,11 @@ export default async function Home({
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-6 py-12">
+    <AppShell calendarConnected={calendarConnected}>
+    <div className="mx-auto w-full max-w-7xl px-6 py-10">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-zinc-900">Inquiry Dashboard</h1>
+          <h1 className="text-3xl font-semibold text-zinc-900">Inquiries</h1>
           <p className="mt-2 text-sm text-zinc-600">
             {error
               ? "There was a problem loading inquiries."
@@ -125,38 +125,6 @@ export default async function Home({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {calendarConnected ? (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm">
-              <span className="font-medium text-emerald-800">Calendar connected</span>
-              <form action={disconnectCalendar}>
-                <button
-                  type="submit"
-                  className="text-xs font-medium text-emerald-700 underline-offset-2 hover:underline"
-                >
-                  Disconnect
-                </button>
-              </form>
-            </div>
-          ) : (
-            <a
-              href="/api/google/connect"
-              className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
-            >
-              Connect Calendar
-            </a>
-          )}
-          <a
-            href="/prospects"
-            className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
-          >
-            Prospects
-          </a>
-          <a
-            href="/edit-plan"
-            className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
-          >
-            Edit plan
-          </a>
           <div className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white p-0.5 text-sm font-medium">
             <a
               href={showingArchived ? "/?archived=1" : "/"}
@@ -193,7 +161,7 @@ export default async function Home({
             }
             className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
           >
-            {showingArchived ? "Back to active" : "Archived"}
+            {showingArchived ? "Active" : "Archived"}
           </a>
           <a
             href="/submit"
@@ -201,7 +169,6 @@ export default async function Home({
           >
             New Inquiry
           </a>
-          <SignOutButton />
         </div>
       </div>
 
@@ -279,6 +246,7 @@ export default async function Home({
         </div>
       </div>
       )}
-    </main>
+    </div>
+    </AppShell>
   );
 }
