@@ -124,6 +124,28 @@ export default function AppShell({
         })}
       </nav>
       <div className="space-y-2 border-t border-zinc-200 p-3">
+        <a
+          href="/submit"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+        >
+          <span>View Public Site</span>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M7 17 17 7" />
+            <path d="M7 7h10v10" />
+          </svg>
+        </a>
         {calendarConnected ? (
           <div className="rounded-md bg-emerald-50 px-3 py-2 text-xs">
             <p className="font-medium text-emerald-800">Calendar connected</p>

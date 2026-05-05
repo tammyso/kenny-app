@@ -27,7 +27,7 @@ export default async function ProspectsPage() {
     <AppShell calendarConnected={calendarConnected}>
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-zinc-900">Brand prospects</h1>
+          <h1 className="text-3xl font-semibold text-zinc-900">Brand Prospects</h1>
           <p className="mt-2 text-sm text-zinc-600">
             {error
               ? "There was a problem loading prospects."
