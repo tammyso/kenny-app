@@ -15,14 +15,17 @@ body {
 }
 
 /* Date inputs marked .dark-input get a light-on-dark calendar picker icon.
-   Setting color-scheme on the input itself + force-inverting the webkit
-   picker indicator handles both Chrome and Safari. !important to override
-   any tailwind reset / specificity battles. */
+   filter: invert is unreliable in safari, so we replace the native indicator
+   icon outright with a white SVG. */
 .dark-input {
   color-scheme: dark;
 }
 .dark-input::-webkit-calendar-picker-indicator {
-  filter: invert(1) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='2' ry='2'/><line x1='16' y1='2' x2='16' y2='6'/><line x1='8' y1='2' x2='8' y2='6'/><line x1='3' y1='10' x2='21' y2='10'/></svg>") !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: 16px 16px !important;
   opacity: 1 !important;
   cursor: pointer;
+  color: transparent;
 }
