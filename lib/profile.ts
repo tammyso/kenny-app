@@ -8,4 +8,9 @@ export const KENNY_PROFILE = {
     { label: "Instagram", handle: "@kenny.video", href: "https://instagram.com/kenny.video" },
     { label: "Vimeo", handle: "vimeo.com/kenny", href: "https://vimeo.com/kenny" },
   ],
+  // Where the review-request email points clients. Add Kenny's real Google
+  // Business Profile review link, Yelp page, etc. when he shares them.
+  reviewLinks: [
+    { label: "Google", href: "https://g.page/r/your-google-business-profile/review" },
+  ],
 };

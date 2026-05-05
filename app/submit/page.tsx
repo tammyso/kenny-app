@@ -338,7 +338,7 @@ export default function SubmitInquiryPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-200">
-                  Reference images
+                  Reference images <span className="text-zinc-500">(optional)</span>
                 </label>
                 <p className="text-xs text-zinc-500">
                   Pinterest pics, mood boards, screenshots — anything that

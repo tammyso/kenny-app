@@ -6,10 +6,12 @@ import {
   bookShoot,
   deleteInquiry,
   generateDraft,
+  markDelivered,
   refreshInvoiceStatus,
   saveDraft,
   sendDraft,
   sendInvoice,
+  sendReviewRequest,
   trashDraft,
   unarchiveInquiry,
   updateInternalNotes,
@@ -42,7 +44,57 @@ export type InquiryRowData = {
   triage_reason: string | null;
   client_research: string | null;
   client_references: { url: string; mediaType: string }[] | null;
+  booked_at: string | null;
+  invoice_sent_at: string | null;
+  delivered_at: string | null;
+  review_requested_at: string | null;
 };
+
+function ActivityFeed({ inquiry }: { inquiry: InquiryRowData }) {
+  const events: { label: string; at: string }[] = [
+    { label: "Submitted", at: inquiry.created_at },
+  ];
+  if (inquiry.draft_generated_at)
+    events.push({ label: "AI drafted reply", at: inquiry.draft_generated_at });
+  if (inquiry.sent_at)
+    events.push({ label: "Reply sent to client", at: inquiry.sent_at });
+  if (inquiry.booked_at)
+    events.push({ label: "Booked", at: inquiry.booked_at });
+  if (inquiry.invoice_sent_at)
+    events.push({ label: "Invoice sent", at: inquiry.invoice_sent_at });
+  if (inquiry.delivered_at)
+    events.push({ label: "Delivered", at: inquiry.delivered_at });
+  if (inquiry.review_requested_at)
+    events.push({
+      label: "Review request sent",
+      at: inquiry.review_requested_at,
+    });
+
+  if (events.length <= 1) return null;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        Activity
+      </p>
+      <ol className="space-y-1 text-sm text-zinc-700">
+        {events.map((e, i) => (
+          <li key={i} className="flex justify-between gap-4">
+            <span>{e.label}</span>
+            <span className="text-xs text-zinc-500">
+              {new Date(e.at).toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 
 const displayDate = (value: string | null) => {
   if (!value) return "-";
@@ -170,6 +222,24 @@ export default function InquiryRow({
       return;
     }
     runAction(() => deleteInquiry(inquiry.id));
+  };
+
+  const isPaid = inquiry.invoice_status === "paid";
+  const isDelivered = Boolean(inquiry.delivered_at);
+  const reviewRequested = Boolean(inquiry.review_requested_at);
+
+  const handleMarkDelivered = () =>
+    runAction(() => markDelivered(inquiry.id));
+
+  const handleSendReview = () => {
+    if (
+      !confirm(
+        `Send a review-request email to ${inquiry.client_name} at ${inquiry.client_email}?`,
+      )
+    ) {
+      return;
+    }
+    runAction(() => sendReviewRequest(inquiry.id));
   };
 
   return (
@@ -363,6 +433,8 @@ export default function InquiryRow({
         <tr className="bg-zinc-50">
           <td colSpan={9} className="px-4 py-4">
             <div className="space-y-4">
+              <ActivityFeed inquiry={inquiry} />
+
               {inquiry.client_references && inquiry.client_references.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -503,11 +575,36 @@ export default function InquiryRow({
                     </button>
                   </>
                 )}
+                {isPaid && !isDelivered && (
+                  <button
+                    type="button"
+                    onClick={handleMarkDelivered}
+                    disabled={isPending}
+                    className="ml-auto rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Mark delivered
+                  </button>
+                )}
+                {isDelivered && !reviewRequested && (
+                  <button
+                    type="button"
+                    onClick={handleSendReview}
+                    disabled={isPending}
+                    className="ml-auto rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isPending ? "Sending..." : "Send review request"}
+                  </button>
+                )}
+                {reviewRequested && (
+                  <span className="ml-auto inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-700">
+                    Review requested
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={isArchived ? handleUnarchive : handleArchive}
                   disabled={isPending}
-                  className="ml-auto rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60${isPaid || isDelivered || reviewRequested ? "" : " ml-auto"}`}
                 >
                   {isArchived ? "Unarchive" : "Archive"}
                 </button>

@@ -17,6 +17,7 @@ import { fetchInvoiceStatus, sendInvoiceForShoot } from "@/lib/stripe";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { researchClient } from "@/lib/research";
 import { getSiteUrl } from "@/lib/site-url";
+import { KENNY_PROFILE } from "@/lib/profile";
 import { triageInquiry, type TriageResult } from "@/lib/triage";
 
 type InquiryForPrompt = {
@@ -318,6 +319,77 @@ export async function deleteInquiry(inquiryId: string) {
   revalidatePath("/");
 }
 
+export async function markDelivered(inquiryId: string) {
+  const supabase = await requireUser();
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ delivered_at: new Date().toISOString() })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to mark delivered: ${error.message}`);
+  revalidatePath("/");
+}
+
+export async function sendReviewRequest(inquiryId: string) {
+  const supabase = await requireUser();
+
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
+  }
+  if (KENNY_PROFILE.reviewLinks.length === 0) {
+    throw new Error(
+      "No review links configured. Add at least one to lib/profile.ts.",
+    );
+  }
+
+  const { data: inquiry, error } = await supabase
+    .from("inquiries")
+    .select("client_name, client_email, project_type")
+    .eq("id", inquiryId)
+    .single<{
+      client_name: string;
+      client_email: string;
+      project_type: string | null;
+    }>();
+  if (error || !inquiry) throw new Error("Inquiry not found");
+
+  const firstName = inquiry.client_name.split(" ")[0] ?? inquiry.client_name;
+  const projectLabel = inquiry.project_type ?? "shoot";
+  const reviewLines = KENNY_PROFILE.reviewLinks.map(
+    (link) => `${link.label}: ${link.href}`,
+  );
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error: sendError } = await resend.emails.send({
+    from: "Kenny <onboarding@resend.dev>",
+    to: inquiry.client_email,
+    subject: `Quick favor — review for your ${projectLabel.toLowerCase()}`,
+    text: [
+      `Hi ${firstName},`,
+      "",
+      `Thanks again for trusting me with your ${projectLabel.toLowerCase()} — really enjoyed working on it. If you have a minute, leaving a quick review would mean a lot and helps me keep finding clients I'd love to work with again.`,
+      "",
+      ...reviewLines,
+      "",
+      "Either way, thanks for the opportunity. Talk soon.",
+      "",
+      "— Kenny",
+    ].join("\n"),
+  });
+  if (sendError) throw new Error(`Failed to send: ${sendError.message}`);
+
+  const { error: updateError } = await supabase
+    .from("inquiries")
+    .update({ review_requested_at: new Date().toISOString() })
+    .eq("id", inquiryId);
+  if (updateError) {
+    throw new Error(
+      `Email sent, but failed to record: ${updateError.message}`,
+    );
+  }
+
+  revalidatePath("/");
+}
+
 export async function updateInternalNotes(inquiryId: string, notes: string) {
   const supabase = await requireUser();
   const { error } = await supabase
@@ -570,6 +642,7 @@ export async function bookShoot(inquiryId: string) {
       status: "booked",
       calendar_event_id: created.id,
       calendar_event_link: created.htmlLink,
+      booked_at: new Date().toISOString(),
     })
     .eq("id", inquiryId);
 
@@ -659,6 +732,7 @@ export async function sendInvoice(args: {
       stripe_hosted_url: result.hostedUrl,
       invoice_amount_cents: args.amountCents,
       invoice_status: result.status,
+      invoice_sent_at: new Date().toISOString(),
     })
     .eq("id", args.inquiryId);
 
