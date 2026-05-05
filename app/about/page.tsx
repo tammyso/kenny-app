@@ -79,7 +79,10 @@ export default function AboutPage() {
           <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
             About
           </p>
-          <h1 className="mt-3 text-5xl font-semibold text-zinc-50 sm:text-6xl">
+          <h1
+            className="mt-3 text-5xl font-normal italic text-zinc-50 sm:text-6xl"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
             Hi, I&apos;m Kenny
           </h1>
         </div>

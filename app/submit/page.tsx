@@ -210,7 +210,10 @@ export default function SubmitInquiryPage() {
           <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
             Videographer
           </p>
-          <h1 className="mt-3 text-5xl font-semibold text-zinc-50 sm:text-6xl">
+          <h1
+            className="mt-3 text-6xl font-normal italic text-zinc-50 sm:text-7xl"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
             Kenny
           </h1>
           <p className="mt-5 text-lg text-zinc-300">
