@@ -327,6 +327,107 @@ export async function markDelivered(inquiryId: string) {
     .eq("id", inquiryId);
   if (error) throw new Error(`Failed to mark delivered: ${error.message}`);
   revalidatePath("/");
+  revalidatePath(`/project/${inquiryId}`);
+}
+
+export async function setDeliverableUrl(inquiryId: string, url: string) {
+  const supabase = await requireUser();
+  const trimmed = url.trim();
+  if (trimmed) {
+    try {
+      new URL(trimmed);
+    } catch {
+      throw new Error("That doesn't look like a valid URL");
+    }
+  }
+  const { error } = await supabase
+    .from("inquiries")
+    .update({ deliverable_url: trimmed || null })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to save link: ${error.message}`);
+  revalidatePath("/");
+  revalidatePath(`/project/${inquiryId}`);
+}
+
+// Combined: save deliverable URL + flip delivered_at in one update so the
+// inquiry never sits in a "marked delivered but no link" half-state.
+export async function deliverShoot(inquiryId: string, url: string) {
+  const supabase = await requireUser();
+  const trimmed = url.trim();
+  if (!trimmed) throw new Error("Add a delivery URL first");
+  try {
+    new URL(trimmed);
+  } catch {
+    throw new Error("That doesn't look like a valid URL");
+  }
+  const { error } = await supabase
+    .from("inquiries")
+    .update({
+      deliverable_url: trimmed,
+      delivered_at: new Date().toISOString(),
+    })
+    .eq("id", inquiryId);
+  if (error) throw new Error(`Failed to save: ${error.message}`);
+  revalidatePath("/");
+  revalidatePath(`/project/${inquiryId}`);
+}
+
+// Public action — called from the project room when a client leaves a
+// comment on the deliverable. Forwards the comment to Kenny via email.
+// No DB persistence yet (pending a comments table; v1 just emails).
+export async function postProjectComment(args: {
+  inquiryId: string;
+  commenterName: string;
+  body: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const body = args.body.trim();
+  const name = args.commenterName.trim();
+  if (!body) return { ok: false, error: "Comment is empty" };
+  if (!name) return { ok: false, error: "Add your name so Kenny knows who" };
+
+  if (
+    !process.env.OWNER_NOTIFICATION_EMAIL ||
+    !process.env.RESEND_API_KEY
+  ) {
+    return { ok: false, error: "Notifications aren't configured" };
+  }
+
+  // Look up the inquiry with the admin client so a public commenter can
+  // trigger this without auth, but verify the inquiry exists and is booked.
+  const supabase = createSupabaseAdminClient();
+  const { data: inquiry } = await supabase
+    .from("inquiries")
+    .select("id, client_name, project_type, status")
+    .eq("id", args.inquiryId)
+    .maybeSingle<{
+      id: string;
+      client_name: string;
+      project_type: string | null;
+      status: string | null;
+    }>();
+  if (!inquiry || inquiry.status !== "booked") {
+    return { ok: false, error: "Couldn't find that project" };
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  try {
+    await resend.emails.send({
+      from: "Kenny App <onboarding@resend.dev>",
+      to: process.env.OWNER_NOTIFICATION_EMAIL,
+      subject: `Comment on ${inquiry.client_name}'s ${inquiry.project_type ?? "project"}`,
+      text: [
+        `${name} left a comment on the project room:`,
+        "",
+        body,
+        "",
+        `Project page: ${getSiteUrl()}/project/${inquiry.id}`,
+      ].join("\n"),
+    });
+  } catch (err) {
+    console.error("Project comment forward failed:", err);
+    return { ok: false, error: "Couldn't send — try again" };
+  }
+  return { ok: true };
 }
 
 export async function sendReviewRequest(inquiryId: string) {
@@ -652,11 +753,13 @@ export async function bookShoot(inquiryId: string) {
     );
   }
 
-  // Send the client a booking confirmation with their project room URL.
-  // Failure here is logged, not thrown — the booking itself succeeded.
+  // Send the client a booking confirmation with their project room URL +
+  // pre-shoot questionnaire link. Failure here is logged, not thrown — the
+  // booking itself succeeded.
   if (process.env.RESEND_API_KEY) {
     try {
       const projectUrl = `${getSiteUrl()}/project/${inquiryId}`;
+      const questionnaireUrl = `${getSiteUrl()}/questionnaire/${inquiryId}`;
       const projectLabel = inquiry.project_type ?? "shoot";
       const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
@@ -668,9 +771,13 @@ export async function bookShoot(inquiryId: string) {
           "",
           `Your ${projectLabel.toLowerCase()} on ${inquiry.event_date} is on the books — looking forward to it.`,
           "",
-          "I've set up a project page for you. It's the live status for everything from here on out — booking details, invoice, and (later) deliverables. Bookmark it and check back any time:",
+          "Two quick things:",
           "",
+          `1) Your project page (live status for booking, invoice, deliverables — bookmark it):`,
           projectUrl,
+          "",
+          `2) Pre-shoot details — fill this out when you have ~3 minutes so the day runs smoothly:`,
+          questionnaireUrl,
           "",
           "Talk soon,",
           "— Kenny",

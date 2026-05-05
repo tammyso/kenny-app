@@ -5,8 +5,8 @@ import {
   archiveInquiry,
   bookShoot,
   deleteInquiry,
+  deliverShoot,
   generateDraft,
-  markDelivered,
   refreshInvoiceStatus,
   saveDraft,
   sendDraft,
@@ -48,6 +48,9 @@ export type InquiryRowData = {
   invoice_sent_at: string | null;
   delivered_at: string | null;
   review_requested_at: string | null;
+  pre_shoot_responses: Record<string, string> | null;
+  pre_shoot_completed_at: string | null;
+  deliverable_url: string | null;
 };
 
 function ActivityFeed({ inquiry }: { inquiry: InquiryRowData }) {
@@ -228,8 +231,14 @@ export default function InquiryRow({
   const isDelivered = Boolean(inquiry.delivered_at);
   const reviewRequested = Boolean(inquiry.review_requested_at);
 
-  const handleMarkDelivered = () =>
-    runAction(() => markDelivered(inquiry.id));
+  const handleMarkDelivered = () => {
+    const url = prompt(
+      "Paste the delivery link (Vimeo, YouTube, Frame.io, Drive, etc.):",
+      inquiry.deliverable_url ?? "",
+    );
+    if (!url || !url.trim()) return;
+    runAction(() => deliverShoot(inquiry.id, url));
+  };
 
   const handleSendReview = () => {
     if (
@@ -469,6 +478,44 @@ export default function InquiryRow({
                   <p className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
                     {inquiry.client_research}
                   </p>
+                </div>
+              )}
+
+              {inquiry.pre_shoot_responses && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Pre-shoot details from client
+                  </p>
+                  <dl className="space-y-2 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm">
+                    {Object.entries(inquiry.pre_shoot_responses)
+                      .filter(([, v]) => v && String(v).trim())
+                      .map(([key, value]) => (
+                        <div key={key}>
+                          <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                            {key.replace(/_/g, " ")}
+                          </dt>
+                          <dd className="mt-0.5 whitespace-pre-wrap text-zinc-800">
+                            {value}
+                          </dd>
+                        </div>
+                      ))}
+                  </dl>
+                </div>
+              )}
+
+              {inquiry.deliverable_url && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Delivery link
+                  </p>
+                  <a
+                    href={inquiry.deliverable_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block truncate rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    {inquiry.deliverable_url}
+                  </a>
                 </div>
               )}
 

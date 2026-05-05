@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import ProjectComment from "./project-comment";
 
 type ProjectRoomData = {
   id: string;
@@ -10,6 +11,29 @@ type ProjectRoomData = {
   stripe_hosted_url: string | null;
   invoice_amount_cents: number | null;
   invoice_status: string | null;
+  deliverable_url: string | null;
+  pre_shoot_completed_at: string | null;
+};
+
+const getEmbedUrl = (url: string): string | null => {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtube.com")) {
+      const id = u.searchParams.get("v");
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.slice(1).split("/")[0];
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").filter(Boolean)[0];
+      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
+    }
+  } catch {
+    /* ignore — fall through to non-embed link */
+  }
+  return null;
 };
 
 const formatDate = (value: string | null) => {
@@ -39,7 +63,7 @@ export default async function ProjectRoom({
   const { data: inquiry } = await supabase
     .from("inquiries")
     .select(
-      "id, client_name, project_type, event_date, status, stripe_hosted_url, invoice_amount_cents, invoice_status",
+      "id, client_name, project_type, event_date, status, stripe_hosted_url, invoice_amount_cents, invoice_status, deliverable_url, pre_shoot_completed_at",
     )
     .eq("id", id)
     .maybeSingle<ProjectRoomData>();
@@ -125,10 +149,62 @@ export default async function ProjectRoom({
           </section>
         )}
 
-        <section className="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-8 text-center text-sm text-zinc-500">
-          Deliverables and edit drafts will land here once the shoot is in the
-          can.
-        </section>
+        {!inquiry.pre_shoot_completed_at && (
+          <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-amber-800">
+              Action needed
+            </p>
+            <p className="mt-2 text-sm text-amber-900">
+              Pre-shoot details aren&apos;t filled out yet. Takes about 3
+              minutes and helps the day run smoothly.
+            </p>
+            <a
+              href={`/questionnaire/${inquiry.id}`}
+              className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-amber-900 px-4 text-sm font-medium text-amber-50 transition hover:bg-amber-800"
+            >
+              Fill out pre-shoot details
+            </a>
+          </section>
+        )}
+
+        {inquiry.deliverable_url ? (
+          <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              Final delivery
+            </p>
+            {(() => {
+              const embed = getEmbedUrl(inquiry.deliverable_url);
+              if (embed) {
+                return (
+                  <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200">
+                    <iframe
+                      src={embed}
+                      title="Final video"
+                      allowFullScreen
+                      allow="autoplay; encrypted-media"
+                      className="aspect-video w-full"
+                    />
+                  </div>
+                );
+              }
+              return (
+                <a
+                  href={inquiry.deliverable_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex h-10 items-center justify-center rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700"
+                >
+                  Open delivery link
+                </a>
+              );
+            })()}
+            <ProjectComment inquiryId={inquiry.id} />
+          </section>
+        ) : (
+          <section className="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-8 text-center text-sm text-zinc-500">
+            The final video will land here once the shoot is in the can.
+          </section>
+        )}
       </div>
 
       <p className="mt-12 text-center text-xs text-zinc-500">
