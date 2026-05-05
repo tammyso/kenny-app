@@ -535,7 +535,8 @@ async function runDraftGeneration(args: {
   }
 
   // If the client attached reference images, prepend them to the user message
-  // so Claude can ground tone in the look they're after.
+  // so Claude can ground tone in the look they're after. Anthropic rejects
+  // empty text content blocks — every text block we add must have content.
   const userContent: Anthropic.ContentBlockParam[] = [];
   const refs = inquiry.client_references ?? [];
   if (refs.length > 0) {
@@ -549,7 +550,6 @@ async function runDraftGeneration(args: {
         source: { type: "url", url: ref.url },
       });
     }
-    userContent.push({ type: "text", text: "" });
   }
   userContent.push({
     type: "text",
