@@ -154,7 +154,7 @@ export default function SubmitInquiryPage() {
               Thanks for reaching out
             </h1>
             <p className="mt-3 text-sm text-zinc-300">
-              Your inquiry is in. Kenny will follow up within a day or two —
+              Your inquiry is in. Kenny will follow up as soon as possible —
               keep an eye on your inbox.
             </p>
             <button
@@ -173,6 +173,21 @@ export default function SubmitInquiryPage() {
   return (
     <div className="min-h-screen bg-zinc-950">
       <main className="mx-auto w-full max-w-5xl px-6 py-16">
+        <nav className="mb-12 flex items-center justify-between">
+          <span className="text-sm font-medium uppercase tracking-wider text-zinc-500">
+            Kenny
+          </span>
+          <div className="flex items-center gap-5 text-sm">
+            <span className="text-zinc-50">Work + contact</span>
+            <a
+              href="/about"
+              className="text-zinc-300 underline-offset-2 hover:text-zinc-50 hover:underline"
+            >
+              About
+            </a>
+          </div>
+        </nav>
+
         <div className="mb-14 max-w-2xl">
           <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
             Videographer
@@ -205,7 +220,7 @@ export default function SubmitInquiryPage() {
             </p>
             <p className="mt-3 text-lg text-zinc-300">
               Have a project in mind? Share a few details and I&apos;ll be in
-              touch within a day or two.
+              touch as soon as possible.
             </p>
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-8 shadow-sm">
