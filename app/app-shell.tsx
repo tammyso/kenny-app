@@ -111,7 +111,7 @@ const EXTERNAL_LINKS: ExternalLink[] = [
     ),
   },
   {
-    href: "https://dashboard.stripe.com/test/payments",
+    href: "https://dashboard.stripe.com",
     label: "Stripe Payments",
     icon: (
       <svg
