@@ -6,6 +6,7 @@ import { PORTFOLIO_ITEMS } from "@/lib/portfolio";
 import { KENNY_PROFILE } from "@/lib/profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import PortfolioCard from "./portfolio-card";
+import { MailIcon, SocialIcon } from "../social-icon";
 
 type LocalReference = {
   file: File;
@@ -392,28 +393,29 @@ export default function SubmitInquiryPage() {
           </div>
         </div>
 
-        <footer className="mt-16 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-zinc-400">
+        <footer className="mt-16 flex flex-col items-center gap-4 text-sm text-zinc-400">
           <span>Based in {KENNY_PROFILE.city}</span>
-          <span aria-hidden className="text-zinc-700">·</span>
-          <a
-            href={`mailto:${KENNY_PROFILE.email}`}
-            className="text-zinc-300 underline-offset-2 hover:text-zinc-100 hover:underline"
-          >
-            {KENNY_PROFILE.email}
-          </a>
-          {KENNY_PROFILE.socials.map((social) => (
-            <span key={social.href} className="contents">
-              <span aria-hidden className="text-zinc-700">·</span>
+          <div className="flex items-center gap-4 text-zinc-300">
+            <a
+              href={`mailto:${KENNY_PROFILE.email}`}
+              aria-label={`Email ${KENNY_PROFILE.email}`}
+              className="transition hover:text-zinc-100"
+            >
+              <MailIcon />
+            </a>
+            {KENNY_PROFILE.socials.map((social) => (
               <a
+                key={social.href}
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-zinc-300 underline-offset-2 hover:text-zinc-100 hover:underline"
+                aria-label={social.label}
+                className="transition hover:text-zinc-100"
               >
-                {social.handle}
+                <SocialIcon kind={social.kind} />
               </a>
-            </span>
-          ))}
+            ))}
+          </div>
         </footer>
       </main>
     </div>
