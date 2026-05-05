@@ -13,6 +13,12 @@ type NavItem = {
   matchExact?: boolean;
 };
 
+type ExternalLink = {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+};
+
 const iconClass = "h-4 w-4 shrink-0";
 
 const NAV_ITEMS: NavItem[] = [
@@ -82,6 +88,49 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const EXTERNAL_LINKS: ExternalLink[] = [
+  {
+    href: "https://calendar.google.com",
+    label: "Google Calendar",
+    icon: (
+      <svg
+        className={iconClass}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    href: "https://dashboard.stripe.com/test/payments",
+    label: "Stripe Payments",
+    icon: (
+      <svg
+        className={iconClass}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    ),
+  },
+];
+
 const isActive = (pathname: string, item: NavItem) =>
   item.matchExact ? pathname === item.href : pathname.startsWith(item.href);
 
@@ -122,6 +171,42 @@ export default function AppShell({
             </Link>
           );
         })}
+
+        <div className="mt-6 border-t border-zinc-200 pt-3">
+          <p className="mb-1 px-3 text-xs font-medium uppercase tracking-wider text-zinc-400">
+            Quick links
+          </p>
+          {EXTERNAL_LINKS.map((link) => (
+            <a
+              key={link.href}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsMobileOpen(false)}
+              className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100"
+            >
+              <span className="flex items-center gap-2.5">
+                {link.icon}
+                <span>{link.label}</span>
+              </span>
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-zinc-400"
+                aria-hidden
+              >
+                <path d="M7 17 17 7" />
+                <path d="M7 7h10v10" />
+              </svg>
+            </a>
+          ))}
+        </div>
       </nav>
       <div className="space-y-2 border-t border-zinc-200 p-3">
         <a
