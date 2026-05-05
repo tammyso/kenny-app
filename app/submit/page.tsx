@@ -5,6 +5,7 @@ import { submitInquiry } from "../actions";
 import { PORTFOLIO_ITEMS } from "@/lib/portfolio";
 import { KENNY_PROFILE } from "@/lib/profile";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import PortfolioCard from "./portfolio-card";
 
 type LocalReference = {
   file: File;
@@ -192,25 +193,7 @@ export default function SubmitInquiryPage() {
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {PORTFOLIO_ITEMS.map((item) => (
-              <figure
-                key={item.id}
-                className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900 transition hover:border-zinc-700"
-              >
-                <div className="relative aspect-video overflow-hidden bg-zinc-800">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={item.posterUrl}
-                    alt={item.title}
-                    className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-                  />
-                </div>
-                <figcaption className="px-3 py-3">
-                  <p className="text-base font-medium text-zinc-100">
-                    {item.title}
-                  </p>
-                  <p className="text-sm text-zinc-500">{item.subtitle}</p>
-                </figcaption>
-              </figure>
+              <PortfolioCard key={item.id} item={item} />
             ))}
           </div>
         </div>
@@ -398,12 +381,12 @@ export default function SubmitInquiryPage() {
           </div>
         </div>
 
-        <footer className="mt-16 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+        <footer className="mt-16 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-zinc-400">
           <span>Based in {KENNY_PROFILE.city}</span>
           <span aria-hidden className="text-zinc-700">·</span>
           <a
             href={`mailto:${KENNY_PROFILE.email}`}
-            className="text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+            className="text-zinc-300 underline-offset-2 hover:text-zinc-100 hover:underline"
           >
             {KENNY_PROFILE.email}
           </a>
@@ -414,7 +397,7 @@ export default function SubmitInquiryPage() {
                 href={social.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                className="text-zinc-300 underline-offset-2 hover:text-zinc-100 hover:underline"
               >
                 {social.handle}
               </a>

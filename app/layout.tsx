@@ -13,13 +13,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kenny",
-  description: "Inquiry dashboard, drafts, calendar, invoices, prospects.",
+  title: {
+    default: "Kenny — Videographer",
+    template: "%s — Kenny",
+  },
+  description:
+    "Brand films, weddings, music videos, and events. Get in touch for one-offs or retainers.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Kenny",
     statusBarStyle: "default",
+  },
+  openGraph: {
+    type: "website",
+    title: "Kenny — Videographer",
+    description:
+      "Brand films, weddings, music videos, and events. Get in touch for one-offs or retainers.",
+    siteName: "Kenny",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kenny — Videographer",
+    description:
+      "Brand films, weddings, music videos, and events. Get in touch for one-offs or retainers.",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 

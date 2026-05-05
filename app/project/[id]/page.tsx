@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+import { getVideoEmbedUrl } from "@/lib/video-embed";
 import ProjectComment from "./project-comment";
 
 type ProjectRoomData = {
@@ -13,27 +14,6 @@ type ProjectRoomData = {
   invoice_status: string | null;
   deliverable_url: string | null;
   pre_shoot_completed_at: string | null;
-};
-
-const getEmbedUrl = (url: string): string | null => {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-    }
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.slice(1).split("/")[0];
-      if (id) return `https://www.youtube.com/embed/${id}`;
-    }
-    if (u.hostname.includes("vimeo.com")) {
-      const id = u.pathname.split("/").filter(Boolean)[0];
-      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
-    }
-  } catch {
-    /* ignore — fall through to non-embed link */
-  }
-  return null;
 };
 
 const formatDate = (value: string | null) => {
@@ -173,7 +153,7 @@ export default async function ProjectRoom({
               Final delivery
             </p>
             {(() => {
-              const embed = getEmbedUrl(inquiry.deliverable_url);
+              const embed = getVideoEmbedUrl(inquiry.deliverable_url);
               if (embed) {
                 return (
                   <div className="mt-3 overflow-hidden rounded-lg border border-zinc-200">

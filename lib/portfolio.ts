@@ -1,10 +1,14 @@
-// Portfolio items shown on the /submit page above the inquiry form. Edit this
-// file (or move to the database later) once Kenny shares his real reels and
-// stills. Each item shows as a card; if videoUrl is set, clicking opens an
-// inline player. posterUrl is the static thumbnail.
+// Portfolio items shown on the /submit page above the inquiry form.
 //
-// Placeholder content uses picsum.photos so the demo page looks populated
-// before real assets land.
+// Two ways to fill these in:
+// 1) videoUrl — paste a YouTube or Vimeo URL (e.g.
+//    "https://www.youtube.com/watch?v=...", "https://vimeo.com/123456").
+//    Cards with a videoUrl render the actual video inline.
+// 2) posterUrl only — falls back to a static thumbnail card. Useful when
+//    the work isn't hosted on YouTube/Vimeo, or to keep page-load fast.
+//
+// Placeholder posters use picsum.photos so the demo page looks populated
+// before kenny shares real reels.
 
 export type PortfolioItem = {
   id: string;
