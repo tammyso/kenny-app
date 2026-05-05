@@ -15,7 +15,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Inquiries", matchExact: true },
   { href: "/prospects", label: "Brand prospects" },
-  { href: "/edit-plan", label: "Cut planner" },
+  { href: "/edit-plan", label: "Template planner" },
 ];
 
 const isActive = (pathname: string, item: NavItem) =>
