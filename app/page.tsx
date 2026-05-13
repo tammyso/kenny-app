@@ -53,6 +53,7 @@ export default async function Home({
     q?: string;
     filter?: string;
     snoozed?: string;
+    completed?: string;
   }>;
 }) {
   const supabase = await createSupabaseServerClient();
@@ -70,6 +71,7 @@ export default async function Home({
   const calendarConnected = await isCalendarConnected();
   const showingArchived = params.archived === "1";
   const showingSnoozed = params.snoozed === "1";
+  const showingCompleted = params.completed === "1";
   const isBoardView = params.view === "board";
   const searchQ = (params.q ?? "").trim();
   const activeFilter = params.filter ?? null;
@@ -77,18 +79,22 @@ export default async function Home({
   let query = supabase
     .from("inquiries")
     .select(
-      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes, triage_tag, triage_reason, client_research, client_references, booked_at, invoice_sent_at, delivered_at, review_requested_at, pre_shoot_responses, pre_shoot_completed_at, deliverable_url, snoozed_until, edit_plan, edit_plan_generated_at",
+      "id, created_at, client_name, client_email, project_type, event_date, budget_range, message, status, draft_reply, draft_status, draft_generated_at, sent_at, calendar_event_id, calendar_event_link, stripe_invoice_id, stripe_hosted_url, invoice_amount_cents, invoice_status, archived_at, internal_notes, triage_tag, triage_reason, client_research, client_references, booked_at, invoice_sent_at, delivered_at, review_requested_at, pre_shoot_responses, pre_shoot_completed_at, deliverable_url, snoozed_until, edit_plan, edit_plan_generated_at, completed_at",
     )
     .order("created_at", { ascending: false });
 
-  query = showingArchived
-    ? query.not("archived_at", "is", null)
-    : query.is("archived_at", null);
+  if (showingArchived) {
+    query = query.not("archived_at", "is", null);
+  } else if (showingCompleted) {
+    query = query.is("archived_at", null).not("completed_at", "is", null);
+  } else {
+    query = query.is("archived_at", null).is("completed_at", null);
+  }
 
   // Snoozed inquiries are hidden from default active view until their date
   // arrives, but a "Snoozed" view (?snoozed=1) shows them explicitly.
   const nowIso = new Date().toISOString();
-  if (!showingArchived) {
+  if (!showingArchived && !showingCompleted) {
     query = showingSnoozed
       ? query.gt("snoozed_until", nowIso)
       : query.or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`);
@@ -184,9 +190,11 @@ export default async function Home({
               ? "There was a problem loading inquiries."
               : showingArchived
                 ? `Showing ${inquiries.length} archived ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`
-                : showingSnoozed
-                  ? `Showing ${inquiries.length} snoozed ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`
-                  : `Showing ${inquiries.length} active ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`}
+                : showingCompleted
+                  ? `Showing ${inquiries.length} completed ${inquiries.length === 1 ? "project" : "projects"}.`
+                  : showingSnoozed
+                    ? `Showing ${inquiries.length} snoozed ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`
+                    : `Showing ${inquiries.length} active ${inquiries.length === 1 ? "inquiry" : "inquiries"}.`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -216,8 +224,9 @@ export default async function Home({
           </div>
           <div className="inline-flex h-10 items-center rounded-lg border border-zinc-300 bg-white p-0.5 text-sm font-medium">
             {[
-              { label: "Active", href: isBoardView ? "/?view=board" : "/", isActive: !showingArchived && !showingSnoozed },
+              { label: "Active", href: isBoardView ? "/?view=board" : "/", isActive: !showingArchived && !showingSnoozed && !showingCompleted },
               { label: "Snoozed", href: isBoardView ? "/?snoozed=1&view=board" : "/?snoozed=1", isActive: showingSnoozed },
+              { label: "Completed", href: isBoardView ? "/?completed=1&view=board" : "/?completed=1", isActive: showingCompleted },
               { label: "Archived", href: isBoardView ? "/?archived=1&view=board" : "/?archived=1", isActive: showingArchived },
             ].map((view) => (
               <a
@@ -254,7 +263,7 @@ export default async function Home({
         </div>
       )}
 
-      {!showingArchived && !showingSnoozed && (
+      {!showingArchived && !showingSnoozed && !showingCompleted && (
         <DashboardStatsPanel stats={stats} />
       )}
 

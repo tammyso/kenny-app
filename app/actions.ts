@@ -963,3 +963,21 @@ export async function trashDraft(inquiryId: string) {
 
   revalidatePath("/");
 }
+
+export async function completeInquiry(inquiryId: string) {
+  const supabase = await requireUser();
+  await supabase
+    .from("inquiries")
+    .update({ completed_at: new Date().toISOString() })
+    .eq("id", inquiryId);
+  revalidatePath("/");
+}
+
+export async function uncompleteInquiry(inquiryId: string) {
+  const supabase = await requireUser();
+  await supabase
+    .from("inquiries")
+    .update({ completed_at: null })
+    .eq("id", inquiryId);
+  revalidatePath("/");
+}

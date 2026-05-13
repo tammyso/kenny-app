@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   archiveInquiry,
   bookShoot,
+  completeInquiry,
   deleteInquiry,
   deliverShoot,
   generateDraft,
@@ -15,6 +16,7 @@ import {
   snoozeInquiry,
   trashDraft,
   unarchiveInquiry,
+  uncompleteInquiry,
   unsnoozeInquiry,
   updateInternalNotes,
 } from "./actions";
@@ -56,6 +58,7 @@ export type InquiryRowData = {
   snoozed_until: string | null;
   edit_plan: string | null;
   edit_plan_generated_at: string | null;
+  completed_at: string | null;
 };
 
 function ActivityFeed({ inquiry }: { inquiry: InquiryRowData }) {
@@ -262,6 +265,12 @@ export default function InquiryRow({
   const isPaid = inquiry.invoice_status === "paid";
   const isDelivered = Boolean(inquiry.delivered_at);
   const reviewRequested = Boolean(inquiry.review_requested_at);
+  const isCompleted = Boolean(inquiry.completed_at);
+
+  const handleComplete = () =>
+    runAction(() => completeInquiry(inquiry.id), "Project completed");
+  const handleUncomplete = () =>
+    runAction(() => uncompleteInquiry(inquiry.id), "Marked active");
 
   const handleMarkDelivered = () => {
     const url = prompt(
@@ -315,6 +324,11 @@ export default function InquiryRow({
                   month: "short",
                   day: "numeric",
                 })}
+              </span>
+            )}
+            {isCompleted && (
+              <span className="inline-flex w-fit items-center rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                Completed
               </span>
             )}
             {messageCount > 0 && (
@@ -792,11 +806,31 @@ export default function InquiryRow({
                     Review requested
                   </span>
                 )}
+                {isDelivered && !isCompleted && (
+                  <button
+                    type="button"
+                    onClick={handleComplete}
+                    disabled={isPending}
+                    className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Complete project
+                  </button>
+                )}
+                {isCompleted && (
+                  <button
+                    type="button"
+                    onClick={handleUncomplete}
+                    disabled={isPending}
+                    className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Reopen
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={isSnoozed ? handleUnsnooze : handleSnooze}
                   disabled={isPending}
-                  className={`rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60${isPaid || isDelivered || reviewRequested ? "" : " ml-auto"}`}
+                  className={`rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60${isPaid || isDelivered || reviewRequested || isCompleted ? "" : " ml-auto"}`}
                 >
                   {isSnoozed ? "Unsnooze" : "Snooze"}
                 </button>
