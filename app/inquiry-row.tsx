@@ -374,7 +374,7 @@ export default function InquiryRow({
             <span>{inquiry.status || "new"}</span>
             {isBooked && !inquiry.stripe_invoice_id && (
               <a
-                href={`/invoices/new?client_name=${encodeURIComponent(inquiry.client_name)}&client_email=${encodeURIComponent(inquiry.client_email)}&event_date=${encodeURIComponent(inquiry.event_date ?? "")}`}
+                href={`/invoices/new?client_name=${encodeURIComponent(inquiry.client_name)}&client_email=${encodeURIComponent(inquiry.client_email)}&event_date=${encodeURIComponent(inquiry.event_date ?? "")}&inquiry_id=${encodeURIComponent(inquiry.id)}`}
                 className="inline-flex w-fit items-center rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50"
               >
                 Create invoice →

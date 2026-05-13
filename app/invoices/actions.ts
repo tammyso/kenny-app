@@ -37,6 +37,7 @@ export async function createInvoice(args: {
   paymentType: "retainer" | "full";
   retainerDueDate?: string;
   balanceDueDate?: string;
+  inquiryId?: string;
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const supabase = await requireUser();
 
@@ -71,6 +72,7 @@ export async function createInvoice(args: {
       retainer_amount: retainerCents,
       retainer_due_date: args.retainerDueDate || null,
       balance_due_date: args.balanceDueDate || null,
+      inquiry_id: args.inquiryId || null,
       status: "draft",
     })
     .select("id")
@@ -101,6 +103,8 @@ type InvoiceRow = {
   status: string;
   stripe_retainer_url: string | null;
   stripe_balance_url: string | null;
+  stripe_retainer_link_id: string | null;
+  stripe_balance_link_id: string | null;
 };
 
 export async function sendInvoiceEmail(
@@ -118,26 +122,34 @@ export async function sendInvoiceEmail(
 
   let retainerUrl = invoice.stripe_retainer_url;
   let balanceUrl = invoice.stripe_balance_url;
+  let retainerLinkId = invoice.stripe_retainer_link_id;
+  let balanceLinkId = invoice.stripe_balance_link_id;
 
   if (!retainerUrl) {
     try {
       if (invoice.payment_type === "retainer") {
-        retainerUrl = await createPaymentLink({
+        const retainer = await createPaymentLink({
           amountCents: invoice.retainer_amount,
           description: `Invoice #${invoice.invoice_number} — 30% Retainer`,
         });
+        retainerUrl = retainer.url;
+        retainerLinkId = retainer.id;
         const balanceCents = invoice.total - invoice.retainer_amount;
         if (balanceCents > 0) {
-          balanceUrl = await createPaymentLink({
+          const balance = await createPaymentLink({
             amountCents: balanceCents,
             description: `Invoice #${invoice.invoice_number} — Remaining Balance`,
           });
+          balanceUrl = balance.url;
+          balanceLinkId = balance.id;
         }
       } else {
-        retainerUrl = await createPaymentLink({
+        const full = await createPaymentLink({
           amountCents: invoice.total,
           description: `Invoice #${invoice.invoice_number} — Payment in Full`,
         });
+        retainerUrl = full.url;
+        retainerLinkId = full.id;
       }
     } catch (stripeErr) {
       console.error("Stripe payment link failed:", stripeErr);
@@ -157,6 +169,17 @@ export async function sendInvoiceEmail(
         "",
         `Invoice #${invoice.invoice_number}`,
         ...(invoice.event_date ? [`Event date: ${invoice.event_date}`] : []),
+        "",
+        "--- Services ---",
+        ...invoice.line_items.map(
+          (item: LineItem) =>
+            `${item.description} (x${item.quantity}) — $${(item.quantity * item.unitPrice).toFixed(2)}`,
+        ),
+        "",
+        `Subtotal: ${fmt(invoice.subtotal)}`,
+        ...(invoice.discount_amount > 0
+          ? [`Discount: -${fmt(invoice.discount_amount)}`]
+          : []),
         `Total: ${fmt(invoice.total)}`,
         "",
       ];
@@ -203,6 +226,8 @@ export async function sendInvoiceEmail(
       sent_at: new Date().toISOString(),
       stripe_retainer_url: retainerUrl,
       stripe_balance_url: balanceUrl,
+      stripe_retainer_link_id: retainerLinkId,
+      stripe_balance_link_id: balanceLinkId,
     })
     .eq("id", invoiceId);
 

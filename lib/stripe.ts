@@ -75,7 +75,8 @@ export async function fetchInvoiceStatus(invoiceId: string): Promise<string> {
 export async function createPaymentLink(args: {
   amountCents: number;
   description: string;
-}): Promise<string> {
+  metadata?: Record<string, string>;
+}): Promise<{ url: string; id: string }> {
   const stripe = getStripe();
   const product = await stripe.products.create({ name: args.description });
   const price = await stripe.prices.create({
@@ -85,6 +86,7 @@ export async function createPaymentLink(args: {
   });
   const link = await stripe.paymentLinks.create({
     line_items: [{ price: price.id, quantity: 1 }],
+    metadata: args.metadata ?? {},
   });
-  return link.url;
+  return { url: link.url, id: link.id };
 }

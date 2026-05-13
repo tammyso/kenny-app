@@ -10,11 +10,18 @@ type ProjectRoomData = {
   project_type: string | null;
   event_date: string | null;
   status: string | null;
-  stripe_hosted_url: string | null;
-  invoice_amount_cents: number | null;
-  invoice_status: string | null;
   deliverable_url: string | null;
   pre_shoot_completed_at: string | null;
+};
+
+type InvoiceData = {
+  id: string;
+  total: number;
+  retainer_amount: number;
+  payment_type: string;
+  status: string;
+  stripe_retainer_url: string | null;
+  stripe_balance_url: string | null;
 };
 
 const formatDate = (value: string | null) => {
@@ -44,10 +51,18 @@ export default async function ProjectRoom({
   const { data: inquiry } = await supabase
     .from("inquiries")
     .select(
-      "id, client_name, project_type, event_date, status, stripe_hosted_url, invoice_amount_cents, invoice_status, deliverable_url, pre_shoot_completed_at",
+      "id, client_name, project_type, event_date, status, deliverable_url, pre_shoot_completed_at",
     )
     .eq("id", id)
     .maybeSingle<ProjectRoomData>();
+
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("id, total, retainer_amount, payment_type, status, stripe_retainer_url, stripe_balance_url")
+    .eq("inquiry_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<InvoiceData>();
 
   const { data: messages } = await supabase
     .from("project_messages")
@@ -103,36 +118,63 @@ export default async function ProjectRoom({
           </dl>
         </section>
 
-        {inquiry.stripe_hosted_url && (
+        {invoice && (
           <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
               Invoice
             </p>
-            <div className="mt-3 flex items-center justify-between gap-4 text-sm">
-              <div>
-                <p className="text-zinc-500">Amount</p>
-                <p className="text-2xl font-semibold text-zinc-900">
-                  $
-                  {((inquiry.invoice_amount_cents ?? 0) / 100).toLocaleString()}
-                </p>
+            <div className="mt-3 space-y-3">
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <div>
+                  <p className="text-zinc-500">Total</p>
+                  <p className="text-2xl font-semibold text-zinc-900">
+                    {(invoice.total / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-zinc-500">Status</p>
+                  <p className="font-medium capitalize text-zinc-900">{invoice.status}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-zinc-500">Status</p>
-                <p className="font-medium capitalize text-zinc-900">
-                  {inquiry.invoice_status ?? "open"}
-                </p>
-              </div>
-            </div>
-            {inquiry.invoice_status !== "paid" && (
+              {invoice.status !== "paid_in_full" && invoice.payment_type === "retainer" && invoice.stripe_retainer_url && invoice.status === "sent" && (
+                <a
+                  href={invoice.stripe_retainer_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700"
+                >
+                  Pay retainer ({(invoice.retainer_amount / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})
+                </a>
+              )}
+              {invoice.status !== "paid_in_full" && invoice.payment_type === "retainer" && invoice.stripe_balance_url && invoice.status === "retainer_paid" && (
+                <a
+                  href={invoice.stripe_balance_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700"
+                >
+                  Pay remaining balance ({((invoice.total - invoice.retainer_amount) / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})
+                </a>
+              )}
+              {invoice.status !== "paid_in_full" && invoice.payment_type === "full" && invoice.stripe_retainer_url && (
+                <a
+                  href={invoice.stripe_retainer_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700"
+                >
+                  Pay in full ({(invoice.total / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })})
+                </a>
+              )}
               <a
-                href={inquiry.stripe_hosted_url}
+                href={`/invoices/${invoice.id}/print`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700"
+                className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-zinc-200 px-5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
               >
-                View and pay invoice
+                View full invoice
               </a>
-            )}
+            </div>
           </section>
         )}
 

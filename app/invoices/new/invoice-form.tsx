@@ -61,6 +61,9 @@ export default function InvoiceForm() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
+  // Inquiry linkage (passed from the dashboard "Create invoice" link)
+  const initialInquiryId = params.get("inquiry_id") ?? "";
+
   // Client info
   const [clientName, setClientName] = useState(params.get("client_name") ?? "");
   const [clientEmail, setClientEmail] = useState(params.get("client_email") ?? "");
@@ -155,6 +158,7 @@ export default function InvoiceForm() {
     paymentType,
     retainerDueDate: retainerDueDate || undefined,
     balanceDueDate: balanceDueDate || undefined,
+    inquiryId: initialInquiryId,
   });
 
   const validate = () => {

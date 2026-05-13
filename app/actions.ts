@@ -138,6 +138,30 @@ export async function submitInquiry(
     message,
   };
 
+  // Send the client a confirmation so they know their inquiry landed.
+  if (process.env.RESEND_API_KEY) {
+    const { Resend } = await import("resend");
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kenny-app.vercel.app";
+    await resend.emails.send({
+      from: process.env.RESEND_FROM ?? "onboarding@resend.dev",
+      to: clientEmail,
+      subject: "Got your inquiry — Oak One Eight Visualz",
+      text: [
+        `Hi ${clientName},`,
+        "",
+        "Thanks for reaching out. Your inquiry has been received and Kenny will follow up shortly.",
+        "",
+        `Check out pricing and packages: ${appUrl}/packages`,
+        `Browse the FAQ: ${appUrl}/faq`,
+        "",
+        "— Kenny",
+        "Oak One Eight Visualz",
+        "646-784-0680 | oakoneeight@gmail.com",
+      ].join("\n"),
+    }).catch((err: unknown) => console.error("Confirmation email failed:", err));
+  }
+
   // Auto-draft the AI reply, triage for spam/low-value, and research the
   // client's brand — all in parallel after the response goes out so the
   // form-submitting client doesn't wait. Each step fails soft.
