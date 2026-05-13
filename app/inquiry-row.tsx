@@ -649,6 +649,22 @@ export default function InquiryRow({
                 </div>
               )}
 
+              {inquiry.status === "booked" && (
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Project room
+                  </p>
+                  <a
+                    href={`/project/${inquiry.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    Open → share with client
+                  </a>
+                </div>
+              )}
+
               {messageCount > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
