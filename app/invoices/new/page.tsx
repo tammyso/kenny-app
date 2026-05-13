@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { isCalendarConnected } from "@/lib/google";
@@ -25,7 +26,9 @@ export default async function NewInvoicePage() {
             Build the invoice, then save as a draft or send immediately.
           </p>
         </div>
-        <InvoiceForm />
+        <Suspense fallback={null}>
+          <InvoiceForm />
+        </Suspense>
       </div>
     </AppShell>
   );

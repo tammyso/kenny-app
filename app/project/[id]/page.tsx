@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getVideoEmbedUrl } from "@/lib/video-embed";
 import ProjectComment from "./project-comment";
+import ProjectMessages from "./project-messages";
 
 type ProjectRoomData = {
   id: string;
@@ -47,6 +48,12 @@ export default async function ProjectRoom({
     )
     .eq("id", id)
     .maybeSingle<ProjectRoomData>();
+
+  const { data: messages } = await supabase
+    .from("project_messages")
+    .select("id, sender_name, message, created_at")
+    .eq("inquiry_id", id)
+    .order("created_at", { ascending: true });
 
   // Only expose booked projects via the public link, and never anything that
   // hasn't been booked yet (drafts, etc. shouldn't leak through this page).
@@ -187,9 +194,7 @@ export default async function ProjectRoom({
         )}
       </div>
 
-      <p className="mt-12 text-center text-xs text-zinc-500">
-        Questions? Reply to Kenny&apos;s last email.
-      </p>
+      <ProjectMessages inquiryId={id} messages={messages ?? []} />
     </main>
   );
 }

@@ -11,7 +11,6 @@ import {
   refreshInvoiceStatus,
   saveDraft,
   sendDraft,
-  sendInvoice,
   sendReviewRequest,
   snoozeInquiry,
   trashDraft,
@@ -185,41 +184,15 @@ export default function InquiryRow({
   const handleBook = () => {
     const projectLabel = inquiry.project_type ?? "shoot";
     const dateLabel = displayDate(inquiry.event_date);
-    if (
-      !confirm(
-        `Book ${inquiry.client_name}'s ${projectLabel} on ${dateLabel}? This creates an event on your primary Google Calendar.`,
-      )
-    ) {
-      return;
+    let confirmMsg: string;
+    if (events && events.length > 0) {
+      const eventList = events.map((e) => `• ${e.title} (${e.timeLabel})`).join("\n");
+      confirmMsg = `${dateLabel} already has:\n${eventList}\n\nBook ${inquiry.client_name}'s ${projectLabel} on this date anyway?`;
+    } else {
+      confirmMsg = `Book ${inquiry.client_name}'s ${projectLabel} on ${dateLabel}? This creates an event on your primary Google Calendar.`;
     }
+    if (!confirm(confirmMsg)) return;
     runAction(() => bookShoot(inquiry.id), "Shoot booked");
-  };
-
-  const handleSendInvoice = () => {
-    const amountStr = prompt(
-      `Invoice amount in dollars for ${inquiry.client_name} (e.g. 1500):`,
-    );
-    if (!amountStr) return;
-    const amount = parseFloat(amountStr.replace(/[$,]/g, ""));
-    if (Number.isNaN(amount) || amount <= 0) {
-      alert("Enter a positive number.");
-      return;
-    }
-    const defaultDescription = `${inquiry.project_type ?? "Videography"} — ${inquiry.client_name}, ${displayDate(inquiry.event_date)}`;
-    const description = prompt(
-      "Invoice line item description:",
-      defaultDescription,
-    );
-    if (!description) return;
-    runAction(
-      () =>
-        sendInvoice({
-          inquiryId: inquiry.id,
-          amountCents: Math.round(amount * 100),
-          description,
-        }),
-      "Invoice sent",
-    );
   };
 
   const handleRefreshInvoice = () =>
@@ -400,14 +373,12 @@ export default function InquiryRow({
           <div className="flex flex-col gap-1">
             <span>{inquiry.status || "new"}</span>
             {isBooked && !inquiry.stripe_invoice_id && (
-              <button
-                type="button"
-                onClick={handleSendInvoice}
-                disabled={isPending}
-                className="inline-flex w-fit items-center rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+              <a
+                href={`/invoices/new?client_name=${encodeURIComponent(inquiry.client_name)}&client_email=${encodeURIComponent(inquiry.client_email)}&event_date=${encodeURIComponent(inquiry.event_date ?? "")}`}
+                className="inline-flex w-fit items-center rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50"
               >
-                {isPending ? "Sending..." : "Send invoice"}
-              </button>
+                Create invoice →
+              </a>
             )}
             {inquiry.stripe_invoice_id && (
               <div className="flex flex-col gap-0.5 text-xs">

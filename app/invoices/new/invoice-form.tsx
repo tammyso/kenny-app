@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createInvoice, sendInvoiceEmail } from "../actions";
 import type { LineItem } from "../actions";
 
@@ -56,16 +57,18 @@ const labelClass = "block text-xs font-medium text-zinc-500 mb-1";
 
 export default function InvoiceForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
   // Client info
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  const [clientName, setClientName] = useState(params.get("client_name") ?? "");
+  const [clientEmail, setClientEmail] = useState(params.get("client_email") ?? "");
   const [clientPhone, setClientPhone] = useState("");
 
   // Event details
-  const [eventDate, setEventDate] = useState("");
+  const initialEventDate = params.get("event_date") ?? "";
+  const [eventDate, setEventDate] = useState(initialEventDate);
   const [eventLocation, setEventLocation] = useState("");
   const [eventTime, setEventTime] = useState("");
 
@@ -81,7 +84,9 @@ export default function InvoiceForm() {
     "retainer",
   );
   const [retainerDueDate, setRetainerDueDate] = useState("");
-  const [balanceDueDate, setBalanceDueDate] = useState("");
+  const [balanceDueDate, setBalanceDueDate] = useState(
+    initialEventDate ? addDays(initialEventDate, -14) : "",
+  );
 
   // Calculations
   const subtotal = lineItems.reduce(
