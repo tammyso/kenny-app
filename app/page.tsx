@@ -10,7 +10,7 @@ import InquiryRow, { type InquiryRowData } from "./inquiry-row";
 import DashboardBoard from "./dashboard-board";
 import DashboardStatsPanel from "./dashboard-stats";
 import DashboardToolbar from "./dashboard-toolbar";
-import { computeDashboardStats } from "@/lib/stats";
+import { computeDashboardStats, type InvoiceStatRow } from "@/lib/stats";
 
 const calendarBannerCopy = (status: string | undefined, message: string | undefined) => {
   switch (status) {
@@ -112,15 +112,19 @@ export default async function Home({
 
   const inquiries: InquiryRowData[] = data ?? [];
 
-  // Stats reflect every inquiry (including archived) — archiving hides from
-  // the main view, doesn't mean "didn't earn money."
-  const { data: allInquiriesForStats } = await supabase
-    .from("inquiries")
-    .select(
-      "id, created_at, project_type, invoice_amount_cents, invoice_status, invoice_sent_at",
-    );
+  // Stats reflect every inquiry + invoice (including archived).
+  const [{ data: allInquiriesForStats }, { data: allInvoicesForStats }] =
+    await Promise.all([
+      supabase
+        .from("inquiries")
+        .select("id, created_at, project_type, invoice_amount_cents, invoice_status, invoice_sent_at"),
+      supabase
+        .from("invoices")
+        .select("total, status, sent_at"),
+    ]);
   const stats = computeDashboardStats(
     (allInquiriesForStats ?? []) as InquiryRowData[],
+    (allInvoicesForStats ?? []) as InvoiceStatRow[],
   );
 
   const eventsByDate = new Map<string, DayEvent[] | null>();

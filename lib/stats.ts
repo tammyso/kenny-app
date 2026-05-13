@@ -1,21 +1,21 @@
 import type { InquiryRowData } from "@/app/inquiry-row";
 
-// Inquiries don't currently track a paid_at timestamp (paid status comes via
-// Stripe refresh). Use invoice_sent_at as a near-enough proxy for when the
-// money landed — most invoices get paid within days/weeks of being sent.
-
 export type RevenueBucket = { label: string; revenueCents: number };
 
 export type DashboardStats = {
   thisMonth: { bookings: number; revenueCents: number };
   thisYear: { bookings: number; revenueCents: number };
   totalRevenueCents: number;
-  // Three pre-bucketed series so the chart can switch ranges without
-  // re-querying.
   monthlyRevenue6m: RevenueBucket[];
   monthlyRevenue12m: RevenueBucket[];
   yearlyRevenueAllTime: RevenueBucket[];
   projectTypeBreakdown: { type: string; count: number }[];
+};
+
+export type InvoiceStatRow = {
+  total: number;
+  status: string;
+  sent_at: string | null;
 };
 
 const monthKey = (date: Date) =>
@@ -35,14 +35,33 @@ const formatMonthYearLabel = (key: string) => {
 
 export function computeDashboardStats(
   inquiries: InquiryRowData[],
+  invoices: InvoiceStatRow[] = [],
 ): DashboardStats {
   const now = new Date();
   const currentMonthKey = monthKey(now);
   const currentYear = now.getFullYear();
 
-  const paid = inquiries.filter(
+  // Legacy: old Stripe invoice flow stored amount on the inquiry row
+  const paidInquiries = inquiries.filter(
     (i) => i.invoice_status === "paid" && i.invoice_amount_cents,
   );
+
+  // New invoice builder: paid_in_full invoices from the invoices table
+  const paidInvoices = invoices.filter((i) => i.status === "paid_in_full");
+
+  // Merge both into a unified list of { amountCents, referenceDate }
+  type PaidItem = { amountCents: number; referenceDate: Date | null; projectType?: string };
+  const paid: PaidItem[] = [
+    ...paidInquiries.map((i) => ({
+      amountCents: i.invoice_amount_cents ?? 0,
+      referenceDate: i.invoice_sent_at ? new Date(i.invoice_sent_at) : null,
+      projectType: i.project_type ?? undefined,
+    })),
+    ...paidInvoices.map((i) => ({
+      amountCents: i.total,
+      referenceDate: i.sent_at ? new Date(i.sent_at) : null,
+    })),
+  ];
 
   let thisMonthBookings = 0;
   let thisMonthRevenue = 0;
@@ -66,13 +85,11 @@ export function computeDashboardStats(
 
   const projectTypeCounts = new Map<string, number>();
 
-  for (const inquiry of paid) {
-    const amount = inquiry.invoice_amount_cents ?? 0;
+  for (const item of paid) {
+    const amount = item.amountCents;
     totalRevenue += amount;
 
-    const referenceDate = inquiry.invoice_sent_at
-      ? new Date(inquiry.invoice_sent_at)
-      : null;
+    const referenceDate = item.referenceDate;
     if (!referenceDate || isNaN(referenceDate.getTime())) continue;
 
     const mKey = monthKey(referenceDate);
@@ -94,8 +111,9 @@ export function computeDashboardStats(
       thisYearRevenue += amount;
     }
 
-    const type = inquiry.project_type ?? "Other";
-    projectTypeCounts.set(type, (projectTypeCounts.get(type) ?? 0) + 1);
+    if (item.projectType) {
+      projectTypeCounts.set(item.projectType, (projectTypeCounts.get(item.projectType) ?? 0) + 1);
+    }
   }
 
   // Make sure the all-time yearly series spans every year between the first

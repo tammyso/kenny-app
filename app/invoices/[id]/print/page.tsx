@@ -29,8 +29,8 @@ type InvoiceRow = {
 const fmt = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-const today = () =>
-  new Date().toLocaleDateString("en-US", {
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -147,7 +147,7 @@ export default async function PrintInvoicePage({
                 <tbody>
                   <tr>
                     <td>Date</td>
-                    <td>{today()}</td>
+                    <td>{formatDate(invoice.created_at)}</td>
                   </tr>
                   <tr>
                     <td>Invoice #</td>

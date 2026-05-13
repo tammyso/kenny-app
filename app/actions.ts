@@ -17,6 +17,7 @@ import { fetchInvoiceStatus, sendInvoiceForShoot } from "@/lib/stripe";
 import { KENNY_REPLY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { researchClient } from "@/lib/research";
 import { getSiteUrl } from "@/lib/site-url";
+import { FROM_ADDRESS } from "@/lib/email";
 import { KENNY_PROFILE } from "@/lib/profile";
 import { triageInquiry, type TriageResult } from "@/lib/triage";
 
@@ -142,9 +143,9 @@ export async function submitInquiry(
   if (process.env.RESEND_API_KEY) {
     const { Resend } = await import("resend");
     const resend = new Resend(process.env.RESEND_API_KEY);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kenny-app.vercel.app";
+    const appUrl = getSiteUrl();
     await resend.emails.send({
-      from: process.env.RESEND_FROM ?? "onboarding@resend.dev",
+      from: FROM_ADDRESS,
       to: clientEmail,
       subject: "Got your inquiry — Oak One Eight Visualz",
       text: [
@@ -306,7 +307,7 @@ async function sendNewInquiryNotification(
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
-    from: "Kenny App <onboarding@resend.dev>",
+    from: FROM_ADDRESS,
     to: process.env.OWNER_NOTIFICATION_EMAIL,
     subject: `${subjectPrefix}New inquiry from ${summary.clientName}${draftSuffix}`,
     text: lines.join("\n"),
@@ -470,7 +471,7 @@ export async function postProjectComment(args: {
   const resend = new Resend(process.env.RESEND_API_KEY);
   try {
     await resend.emails.send({
-      from: "Kenny App <onboarding@resend.dev>",
+      from: FROM_ADDRESS,
       to: process.env.OWNER_NOTIFICATION_EMAIL,
       subject: `Comment on ${inquiry.client_name}'s ${inquiry.project_type ?? "project"}`,
       text: [
@@ -519,7 +520,7 @@ export async function sendReviewRequest(inquiryId: string) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error: sendError } = await resend.emails.send({
-    from: "Kenny <onboarding@resend.dev>",
+    from: FROM_ADDRESS,
     to: inquiry.client_email,
     subject: `Quick favor — review for your ${projectLabel.toLowerCase()}`,
     text: [
@@ -718,7 +719,7 @@ export async function sendDraft(inquiryId: string, draftReply: string) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error: sendError } = await resend.emails.send({
-    from: "Kenny <onboarding@resend.dev>",
+    from: FROM_ADDRESS,
     to: inquiry.client_email,
     subject: buildSubject(inquiry.project_type),
     text: trimmed,
@@ -821,7 +822,7 @@ export async function bookShoot(inquiryId: string) {
       const projectLabel = inquiry.project_type ?? "shoot";
       const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
-        from: "Kenny <onboarding@resend.dev>",
+        from: FROM_ADDRESS,
         to: inquiry.client_email,
         subject: `Booking confirmed — your ${projectLabel.toLowerCase()} with Kenny`,
         text: [

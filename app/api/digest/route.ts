@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { getSiteUrl } from "@/lib/site-url";
+import { FROM_ADDRESS } from "@/lib/email";
 
 type DigestInquiry = {
   id: string;
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   try {
     await resend.emails.send({
-      from: "Kenny App <onboarding@resend.dev>",
+      from: FROM_ADDRESS,
       to: process.env.OWNER_NOTIFICATION_EMAIL,
       subject: "Weekly digest — pending actions",
       text: lines.join("\n"),

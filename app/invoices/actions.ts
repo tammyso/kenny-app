@@ -6,6 +6,7 @@ import { Resend } from "resend";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { createPaymentLink } from "@/lib/stripe";
 import { getSiteUrl } from "@/lib/site-url";
+import { FROM_ADDRESS } from "@/lib/email";
 
 const requireUser = async () => {
   const supabase = await createSupabaseServerClient();
@@ -209,7 +210,7 @@ export async function sendInvoiceEmail(
       );
 
       await resend.emails.send({
-        from: "Kenny <onboarding@resend.dev>",
+        from: FROM_ADDRESS,
         to: invoice.client_email,
         subject: `Invoice #${invoice.invoice_number} — Oak One Eight Visualz`,
         text: lines.join("\n"),

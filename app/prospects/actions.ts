@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { KENNY_PROSPECT_SYSTEM_PROMPT } from "@/lib/prompts";
+import { FROM_ADDRESS } from "@/lib/email";
 
 const requireUser = async () => {
   const supabase = await createSupabaseServerClient();
@@ -135,7 +136,7 @@ export async function sendProspectDraft(prospectId: string, draft: string) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { error: sendError } = await resend.emails.send({
-    from: "Kenny <onboarding@resend.dev>",
+    from: FROM_ADDRESS,
     to: prospect.contact_email,
     subject: `Quick idea for ${prospect.brand_name}`,
     text: trimmed,
