@@ -71,3 +71,20 @@ export async function fetchInvoiceStatus(invoiceId: string): Promise<string> {
   const invoice = await stripe.invoices.retrieve(invoiceId);
   return invoice.status ?? "open";
 }
+
+export async function createPaymentLink(args: {
+  amountCents: number;
+  description: string;
+}): Promise<string> {
+  const stripe = getStripe();
+  const product = await stripe.products.create({ name: args.description });
+  const price = await stripe.prices.create({
+    product: product.id,
+    unit_amount: args.amountCents,
+    currency: "usd",
+  });
+  const link = await stripe.paymentLinks.create({
+    line_items: [{ price: price.id, quantity: 1 }],
+  });
+  return link.url;
+}
