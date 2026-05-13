@@ -42,54 +42,56 @@ const SHOOTS = [
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-zinc-950">
-      <main className="mx-auto w-full max-w-3xl px-6 py-16">
+      <main className="mx-auto w-full max-w-5xl px-6 py-16">
         <PublicNav />
 
-        <div className="mb-12 max-w-2xl">
-          <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
-            About
-          </p>
-        </div>
-
-        <div className="space-y-5">
-          {BIO_PARAGRAPHS.map((p, i) => (
-            <p key={i} className="text-lg leading-relaxed text-zinc-300">
-              {p}
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-12">
+            <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
+              About
             </p>
-          ))}
-        </div>
+          </div>
 
-        <div className="mt-14">
-          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-            What I shoot
-          </p>
-          <dl className="mt-4 space-y-5">
-            {SHOOTS.map((s) => (
-              <div key={s.label}>
-                <dt className="text-base font-medium text-zinc-100">
-                  {s.label}
-                </dt>
-                <dd className="mt-1 text-sm text-zinc-400">{s.blurb}</dd>
-              </div>
+          <div className="space-y-5">
+            {BIO_PARAGRAPHS.map((p, i) => (
+              <p key={i} className="text-lg leading-relaxed text-zinc-300">
+                {p}
+              </p>
             ))}
-          </dl>
-        </div>
+          </div>
 
-        <div className="mt-14 rounded-xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8">
-          <p className="text-base text-zinc-300">
-            Got a project in mind? I&apos;d love to hear about it.
-          </p>
-          <Link
-            href="/submit"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-zinc-100 px-5 text-sm font-medium text-zinc-900 transition hover:bg-white"
-          >
-            Send me an inquiry
-          </Link>
-        </div>
+          <div className="mt-14">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+              What I shoot
+            </p>
+            <dl className="mt-4 space-y-5">
+              {SHOOTS.map((s) => (
+                <div key={s.label}>
+                  <dt className="text-base font-medium text-zinc-100">
+                    {s.label}
+                  </dt>
+                  <dd className="mt-1 text-sm text-zinc-400">{s.blurb}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
 
-        <footer className="mt-16 text-center text-xs text-zinc-500">
-          Based in {KENNY_PROFILE.city} · &copy; {new Date().getFullYear()} Kenny
-        </footer>
+          <div className="mt-14 rounded-xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8">
+            <p className="text-base text-zinc-300">
+              Got a project in mind? I&apos;d love to hear about it.
+            </p>
+            <Link
+              href="/submit"
+              className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-zinc-100 px-5 text-sm font-medium text-zinc-900 transition hover:bg-white"
+            >
+              Send me an inquiry
+            </Link>
+          </div>
+
+          <footer className="mt-16 text-center text-xs text-zinc-500">
+            Based in {KENNY_PROFILE.city} · &copy; {new Date().getFullYear()} Kenny
+          </footer>
+        </div>
       </main>
     </div>
   );

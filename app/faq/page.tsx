@@ -67,10 +67,10 @@ const FAQS = [
 export default function FaqPage() {
   return (
     <div className="min-h-screen bg-zinc-950">
-      <main className="mx-auto w-full max-w-3xl px-6 py-16">
+      <main className="mx-auto w-full max-w-5xl px-6 py-16">
         <PublicNav />
 
-        <div className="mb-14 max-w-2xl">
+        <div className="mx-auto mb-14 max-w-3xl">
           <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
             FAQ
           </p>
@@ -82,33 +82,35 @@ export default function FaqPage() {
           </h1>
         </div>
 
-        <dl className="space-y-10">
-          {FAQS.map((faq) => (
-            <div key={faq.q}>
-              <dt className="text-base font-medium text-zinc-100">{faq.q}</dt>
-              <dd className="mt-2 text-sm leading-relaxed text-zinc-400">
-                {faq.a}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="mx-auto max-w-3xl">
+          <dl className="space-y-10">
+            {FAQS.map((faq) => (
+              <div key={faq.q}>
+                <dt className="text-base font-medium text-zinc-100">{faq.q}</dt>
+                <dd className="mt-2 text-sm leading-relaxed text-zinc-400">
+                  {faq.a}
+                </dd>
+              </div>
+            ))}
+          </dl>
 
-        <div className="mt-14 rounded-xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8">
-          <p className="text-base text-zinc-300">
-            Still have questions? Send me a note and I&apos;ll get back to you
-            as soon as possible.
-          </p>
-          <Link
-            href="/submit"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-zinc-100 px-5 text-sm font-medium text-zinc-900 transition hover:bg-white"
-          >
-            Get in touch
-          </Link>
+          <div className="mt-14 rounded-xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8">
+            <p className="text-base text-zinc-300">
+              Still have questions? Send me a note and I&apos;ll get back to you
+              as soon as possible.
+            </p>
+            <Link
+              href="/submit"
+              className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-zinc-100 px-5 text-sm font-medium text-zinc-900 transition hover:bg-white"
+            >
+              Get in touch
+            </Link>
+          </div>
+
+          <footer className="mt-16 text-center text-xs text-zinc-500">
+            Based in {KENNY_PROFILE.city} · &copy; {new Date().getFullYear()} Kenny
+          </footer>
         </div>
-
-        <footer className="mt-16 text-center text-xs text-zinc-500">
-          Based in {KENNY_PROFILE.city} · &copy; {new Date().getFullYear()} Kenny
-        </footer>
       </main>
     </div>
   );

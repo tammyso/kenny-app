@@ -18,7 +18,7 @@ export default function PublicNav() {
 
   return (
     <nav className="mb-12 flex items-center justify-between gap-5 text-sm">
-      <Link href="/submit" className="flex items-center gap-4" aria-label="Oak One Eight Visualz — home">
+      <Link href="/submit" className="flex min-w-0 items-center gap-4" aria-label="Oak One Eight Visualz — home">
         <Image
           src="/logo.png"
           alt="Oak One Eight Visualz"
@@ -38,15 +38,15 @@ export default function PublicNav() {
           </p>
         </div>
       </Link>
-      <div className="flex items-center gap-5">
+      <div className="flex shrink-0 items-center gap-5">
       {NAV_LINKS.map((link) => (
         <Link
           key={link.href}
           href={link.href}
           className={
             pathname === link.href
-              ? "text-zinc-50"
-              : "text-zinc-300 underline-offset-2 hover:text-zinc-50 hover:underline"
+              ? "whitespace-nowrap text-zinc-50"
+              : "whitespace-nowrap text-zinc-300 underline-offset-2 hover:text-zinc-50 hover:underline"
           }
           aria-current={pathname === link.href ? "page" : undefined}
         >
