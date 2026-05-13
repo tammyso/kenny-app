@@ -78,3 +78,29 @@ export async function generateEditPlan(args: {
   if (!text) throw new Error("Claude returned an empty plan");
   return text;
 }
+
+export async function saveEditPlan(inquiryId: string, plan: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authorized");
+
+  await supabase
+    .from("inquiries")
+    .update({ edit_plan: plan, edit_plan_generated_at: new Date().toISOString() })
+    .eq("id", inquiryId);
+}
+
+export async function getBookedInquiries(): Promise<{ id: string; client_name: string; event_date: string | null; project_type: string | null }[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data } = await supabase
+    .from("inquiries")
+    .select("id, client_name, event_date, project_type")
+    .eq("status", "booked")
+    .is("archived_at", null)
+    .order("event_date", { ascending: true });
+
+  return data ?? [];
+}

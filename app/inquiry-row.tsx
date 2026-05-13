@@ -54,6 +54,8 @@ export type InquiryRowData = {
   pre_shoot_completed_at: string | null;
   deliverable_url: string | null;
   snoozed_until: string | null;
+  edit_plan: string | null;
+  edit_plan_generated_at: string | null;
 };
 
 function ActivityFeed({ inquiry }: { inquiry: InquiryRowData }) {
@@ -576,6 +578,44 @@ export default function InquiryRow({
                         </div>
                       ))}
                   </dl>
+                </div>
+              )}
+
+              {inquiry.edit_plan && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Edit plan
+                    </p>
+                    <div className="flex items-center gap-3">
+                      {inquiry.edit_plan_generated_at && (
+                        <span className="text-xs text-zinc-400">
+                          {new Date(inquiry.edit_plan_generated_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      <a
+                        href={`/edit-plan?inquiry_id=${inquiry.id}`}
+                        className="text-xs font-medium text-zinc-500 underline-offset-2 hover:underline"
+                      >
+                        Regenerate
+                      </a>
+                    </div>
+                  </div>
+                  <pre className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white px-3 py-2 font-sans text-sm text-zinc-800">
+                    {inquiry.edit_plan}
+                  </pre>
+                </div>
+              )}
+
+              {!inquiry.edit_plan && inquiry.status === "booked" && (
+                <div className="flex items-center justify-between rounded-lg border border-dashed border-zinc-300 bg-white px-3 py-2 text-sm">
+                  <span className="text-zinc-500">No edit plan yet.</span>
+                  <a
+                    href={`/edit-plan?inquiry_id=${inquiry.id}`}
+                    className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline"
+                  >
+                    Generate one →
+                  </a>
                 </div>
               )}
 

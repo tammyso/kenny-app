@@ -118,7 +118,16 @@ export default async function ProjectRoom({
           </dl>
         </section>
 
-        {invoice && (
+        {invoice && invoice.status === "draft" && (
+          <section className="rounded-xl border border-dashed border-zinc-300 bg-white px-6 py-5">
+            <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">Invoice</p>
+            <p className="mt-2 text-sm text-zinc-500">
+              Your invoice is being prepared and will appear here shortly.
+            </p>
+          </section>
+        )}
+
+        {invoice && invoice.status !== "draft" && (
           <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
               Invoice
@@ -133,7 +142,9 @@ export default async function ProjectRoom({
                 </div>
                 <div className="text-right">
                   <p className="text-zinc-500">Status</p>
-                  <p className="font-medium capitalize text-zinc-900">{invoice.status}</p>
+                  <p className="font-medium capitalize text-zinc-900">
+                    {invoice.status === "paid_in_full" ? "Paid in full" : invoice.status === "retainer_paid" ? "Retainer paid" : "Sent"}
+                  </p>
                 </div>
               </div>
               {invoice.status !== "paid_in_full" && invoice.payment_type === "retainer" && invoice.stripe_retainer_url && invoice.status === "sent" && (

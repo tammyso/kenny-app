@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { generateEditPlan, type EditPlanImage } from "./actions";
+import { generateEditPlan, saveEditPlan, type EditPlanImage } from "./actions";
 
 type SpeechRecognitionLike = {
   continuous: boolean;
@@ -163,7 +163,13 @@ const extractVideoFrames = (
     };
   });
 
-export default function EditPlanForm() {
+export default function EditPlanForm({
+  bookedInquiries = [],
+  initialInquiryId = null,
+}: {
+  bookedInquiries?: { id: string; client_name: string; event_date: string | null; project_type: string | null }[];
+  initialInquiryId?: string | null;
+}) {
   const [inputMode, setInputMode] = useState<"screenshots" | "video">("screenshots");
   const [images, setImages] = useState<LocalImage[]>([]);
   const [videoFileName, setVideoFileName] = useState<string | null>(null);
@@ -173,7 +179,10 @@ export default function EditPlanForm() {
   const [projectType, setProjectType] = useState("");
   const [targetLength, setTargetLength] = useState("");
   const [vibe, setVibe] = useState("");
+  const [linkedInquiryId, setLinkedInquiryId] = useState(initialInquiryId ?? "");
   const [plan, setPlan] = useState<string | null>(null);
+  const [savedToInquiry, setSavedToInquiry] = useState(false);
+  const [isSaving, startSaveTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -316,6 +325,7 @@ export default function EditPlanForm() {
           images: payload,
         });
         setPlan(result);
+        setSavedToInquiry(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
@@ -329,6 +339,14 @@ export default function EditPlanForm() {
     } catch {
       setError("Couldn't copy — select and copy manually.");
     }
+  };
+
+  const handleSave = () => {
+    if (!plan || !linkedInquiryId) return;
+    startSaveTransition(async () => {
+      await saveEditPlan(linkedInquiryId, plan);
+      setSavedToInquiry(true);
+    });
   };
 
   return (
@@ -524,6 +542,34 @@ export default function EditPlanForm() {
           <pre className="mt-4 whitespace-pre-wrap font-sans text-sm leading-6 text-zinc-900">
             {plan}
           </pre>
+          {bookedInquiries.length > 0 && (
+            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-zinc-100 pt-5">
+              <select
+                value={linkedInquiryId}
+                onChange={(e) => { setLinkedInquiryId(e.target.value); setSavedToInquiry(false); }}
+                className="flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 outline-none focus:ring-2 focus:ring-zinc-400/20"
+              >
+                <option value="">Save to inquiry (optional)…</option>
+                {bookedInquiries.map((inq) => (
+                  <option key={inq.id} value={inq.id}>
+                    {inq.client_name}{inq.project_type ? ` — ${inq.project_type}` : ""}{inq.event_date ? ` (${inq.event_date})` : ""}
+                  </option>
+                ))}
+              </select>
+              {savedToInquiry ? (
+                <span className="text-sm text-emerald-700">Saved.</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={!linkedInquiryId || isSaving}
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSaving ? "Saving…" : "Save to inquiry"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

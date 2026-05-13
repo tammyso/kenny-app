@@ -210,6 +210,11 @@ export async function sendInvoiceEmail(
       }
     } catch (stripeErr) {
       console.error("Stripe payment link failed:", stripeErr);
+      // Don't send the email without payment links — return an error Kenny can act on.
+      return {
+        ok: false,
+        error: `Stripe payment link failed: ${stripeErr instanceof Error ? stripeErr.message : String(stripeErr)}. Check your STRIPE_SECRET_KEY env var, then try again.`,
+      };
     }
   }
 

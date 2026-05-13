@@ -3,8 +3,13 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { isCalendarConnected } from "@/lib/google";
 import AppShell from "../app-shell";
 import EditPlanForm from "./edit-plan-form";
+import { getBookedInquiries } from "./actions";
 
-export default async function EditPlanPage() {
+export default async function EditPlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ inquiry_id?: string }>;
+}) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -12,6 +17,8 @@ export default async function EditPlanPage() {
   if (!user) redirect("/login");
 
   const calendarConnected = await isCalendarConnected();
+  const params = await searchParams;
+  const bookedInquiries = await getBookedInquiries();
 
   return (
     <AppShell calendarConnected={calendarConnected}>
@@ -24,7 +31,10 @@ export default async function EditPlanPage() {
           </p>
         </div>
 
-        <EditPlanForm />
+        <EditPlanForm
+          bookedInquiries={bookedInquiries}
+          initialInquiryId={params.inquiry_id ?? null}
+        />
       </div>
     </AppShell>
   );
