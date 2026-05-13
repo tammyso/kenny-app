@@ -88,6 +88,62 @@ export async function createInvoice(args: {
   return { ok: true, id: data.id as string };
 }
 
+export async function updateInvoice(
+  invoiceId: string,
+  args: {
+    clientName: string;
+    clientEmail: string;
+    clientPhone?: string;
+    eventDate?: string;
+    eventLocation?: string;
+    eventTime?: string;
+    lineItems: LineItem[];
+    discountDollars: number;
+    paymentType: "retainer" | "full";
+    retainerDueDate?: string;
+    balanceDueDate?: string;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await requireUser();
+
+  const subtotalCents = args.lineItems.reduce(
+    (sum, item) => sum + Math.round(item.quantity * item.unitPrice * 100),
+    0,
+  );
+  const discountCents = Math.round(args.discountDollars * 100);
+  const totalCents = Math.max(0, subtotalCents - discountCents);
+  const retainerCents = Math.round(totalCents * 0.3);
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({
+      client_name: args.clientName,
+      client_email: args.clientEmail,
+      client_phone: args.clientPhone || null,
+      event_date: args.eventDate || null,
+      event_location: args.eventLocation || null,
+      event_time: args.eventTime || null,
+      line_items: args.lineItems,
+      discount_amount: discountCents,
+      subtotal: subtotalCents,
+      total: totalCents,
+      payment_type: args.paymentType,
+      retainer_amount: retainerCents,
+      retainer_due_date: args.retainerDueDate || null,
+      balance_due_date: args.balanceDueDate || null,
+    })
+    .eq("id", invoiceId);
+
+  if (error) {
+    console.error("Invoice update error:", error);
+    return { ok: false, error: "Failed to update invoice" };
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return { ok: true };
+}
+
 type InvoiceRow = {
   id: string;
   invoice_number: string;

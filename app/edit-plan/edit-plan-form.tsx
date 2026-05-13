@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { generateEditPlan, type EditPlanImage } from "./actions";
 
-// Minimal Web Speech API surface — the official types aren't in TS lib.dom by
-// default, but this is all we use.
 type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
@@ -37,17 +35,14 @@ type LocalImage = {
   previewUrl: string;
 };
 
-const ALLOWED_TYPES = [
+const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
 ] as const;
-type AllowedType = (typeof ALLOWED_TYPES)[number];
+type AllowedType = (typeof ALLOWED_IMAGE_TYPES)[number];
 
-// Phone photos are huge (3-5MB each); raw base64 of a few of them blows past
-// the server-action body size limit. Downsize to ~1024px and re-encode as JPEG
-// before sending — plenty of resolution for Claude to read a thumbnail.
 const MAX_DIM = 1024;
 const JPEG_QUALITY = 0.85;
 
@@ -55,14 +50,8 @@ const loadImage = (file: File): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = (e) => {
-      URL.revokeObjectURL(url);
-      reject(e);
-    };
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
     img.src = url;
   });
 
@@ -104,8 +93,82 @@ const resizeFileToBase64 = async (
   return { base64, mediaType: "image/jpeg" };
 };
 
+const formatTimestamp = (seconds: number): string => {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+};
+
+// Extract evenly-spaced frames from a video file using HTML5 Canvas.
+// Returns frame images + the timestamps they were taken from.
+const extractVideoFrames = (
+  file: File,
+  numFrames: number = 10,
+): Promise<{ images: LocalImage[]; timestamps: number[] }> =>
+  new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+    video.muted = true;
+    video.preload = "metadata";
+
+    video.onloadedmetadata = async () => {
+      const duration = video.duration;
+      if (!isFinite(duration) || duration <= 0) {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Could not read video duration. Try a different file."));
+        return;
+      }
+
+      const count = Math.min(numFrames, 12);
+      const interval = duration / (count + 1);
+      const timestamps: number[] = [];
+      const images: LocalImage[] = [];
+
+      for (let i = 1; i <= count; i++) {
+        const t = Math.min(interval * i, duration - 0.1);
+        timestamps.push(t);
+
+        await new Promise<void>((res) => {
+          video.currentTime = t;
+          video.onseeked = () => {
+            const canvas = document.createElement("canvas");
+            const ratio = Math.min(MAX_DIM / video.videoWidth, MAX_DIM / video.videoHeight, 1);
+            canvas.width = Math.max(1, Math.round(video.videoWidth * ratio));
+            canvas.height = Math.max(1, Math.round(video.videoHeight * ratio));
+            const ctx = canvas.getContext("2d");
+            if (ctx) ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  const frameFile = new File([blob], `frame-${i}.jpg`, { type: "image/jpeg" });
+                  images.push({ file: frameFile, previewUrl: URL.createObjectURL(blob) });
+                }
+                res();
+              },
+              "image/jpeg",
+              JPEG_QUALITY,
+            );
+          };
+        });
+      }
+
+      URL.revokeObjectURL(objectUrl);
+      resolve({ images, timestamps });
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not load video. Try MP4 or MOV format."));
+    };
+  });
+
 export default function EditPlanForm() {
+  const [inputMode, setInputMode] = useState<"screenshots" | "video">("screenshots");
   const [images, setImages] = useState<LocalImage[]>([]);
+  const [videoFileName, setVideoFileName] = useState<string | null>(null);
+  const [videoTimestamps, setVideoTimestamps] = useState<number[]>([]);
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [brief, setBrief] = useState("");
   const [projectType, setProjectType] = useState("");
   const [targetLength, setTargetLength] = useState("");
@@ -114,7 +177,6 @@ export default function EditPlanForm() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Voice memo state — Web Speech API only, no upload/transcription server.
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [interim, setInterim] = useState("");
@@ -157,11 +219,7 @@ export default function EditPlanForm() {
         });
       }
     };
-    recognition.onend = () => {
-      setIsRecording(false);
-      setInterim("");
-      recognitionRef.current = null;
-    };
+    recognition.onend = () => { setIsRecording(false); setInterim(""); recognitionRef.current = null; };
     recognition.onerror = (event) => {
       setError(`Voice error: ${event.error}. Try again or type the brief.`);
       setIsRecording(false);
@@ -174,21 +232,15 @@ export default function EditPlanForm() {
     setIsRecording(true);
   };
 
-  const stopRecording = () => {
-    recognitionRef.current?.stop();
-  };
+  const stopRecording = () => recognitionRef.current?.stop();
+  const toggleRecording = () => { if (isRecording) stopRecording(); else startRecording(); };
 
-  const toggleRecording = () => {
-    if (isRecording) stopRecording();
-    else startRecording();
-  };
-
-  const handleFiles = (files: FileList | null) => {
+  const handleImageFiles = (files: FileList | null) => {
     if (!files) return;
     setError(null);
     const next: LocalImage[] = [];
     for (const file of Array.from(files)) {
-      if (!ALLOWED_TYPES.includes(file.type as AllowedType)) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type as AllowedType)) {
         setError(`${file.name} skipped — only JPG, PNG, GIF, or WEBP.`);
         continue;
       }
@@ -197,26 +249,59 @@ export default function EditPlanForm() {
     setImages((prev) => [...prev, ...next].slice(0, 12));
   };
 
+  const handleVideoFile = async (file: File | null) => {
+    if (!file) return;
+    setError(null);
+    setIsExtractingFrames(true);
+    setImages([]);
+    setVideoTimestamps([]);
+    setVideoFileName(null);
+    try {
+      const { images: frames, timestamps } = await extractVideoFrames(file, 10);
+      setImages(frames);
+      setVideoTimestamps(timestamps);
+      setVideoFileName(file.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Frame extraction failed.");
+    } finally {
+      setIsExtractingFrames(false);
+    }
+  };
+
+  const switchMode = (mode: "screenshots" | "video") => {
+    setInputMode(mode);
+    setImages([]);
+    setVideoFileName(null);
+    setVideoTimestamps([]);
+    setError(null);
+  };
+
   const removeImage = (idx: number) => {
     setImages((prev) => {
       const target = prev[idx];
       if (target) URL.revokeObjectURL(target.previewUrl);
       return prev.filter((_, i) => i !== idx);
     });
+    if (videoTimestamps.length > 0) {
+      setVideoTimestamps((prev) => prev.filter((_, i) => i !== idx));
+    }
   };
 
   const handleSubmit = () => {
     setError(null);
     setPlan(null);
 
-    if (!brief.trim()) {
-      setError("Brief is required.");
-      return;
-    }
+    if (!brief.trim()) { setError("Brief is required."); return; }
     if (images.length === 0) {
-      setError("Upload at least one thumbnail.");
+      setError(inputMode === "video" ? "No frames extracted — select a video first." : "Upload at least one thumbnail.");
       return;
     }
+
+    // When frames came from a video, prepend timestamp context to the brief.
+    const fullBrief =
+      videoFileName && videoTimestamps.length > 0
+        ? `Note: thumbnails are frames auto-extracted from "${videoFileName}". Timing: ${videoTimestamps.map((t, i) => `thumbnail ${i + 1} = ${formatTimestamp(t)}`).join(", ")}.\n\n${brief.trim()}`
+        : brief.trim();
 
     startTransition(async () => {
       try {
@@ -224,7 +309,7 @@ export default function EditPlanForm() {
           images.map((img) => resizeFileToBase64(img.file)),
         );
         const result = await generateEditPlan({
-          brief,
+          brief: fullBrief,
           projectType,
           targetLength,
           vibe,
@@ -248,21 +333,66 @@ export default function EditPlanForm() {
 
   return (
     <div className="space-y-6">
+      {/* Input mode toggle */}
       <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-zinc-900">
-          1. Upload thumbnails
-        </h2>
-        <p className="mt-1 text-xs text-zinc-600">
-          Take screenshots of key moments from each clip in Premiere. Up to 12
-          thumbnails. They&apos;re sent to Claude for the plan and not stored.
+        <h2 className="text-sm font-semibold text-zinc-900">1. Footage</h2>
+        <p className="mt-1 text-xs text-zinc-500">
+          Upload a video clip to auto-extract frames, or upload screenshots you took in Premiere.
         </p>
-        <input
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          onChange={(e) => handleFiles(e.target.files)}
-          className="mt-3 block w-full text-sm text-zinc-700 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
-        />
+        <div className="mt-3 inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+          <button
+            type="button"
+            onClick={() => switchMode("video")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${inputMode === "video" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"}`}
+          >
+            Upload video clip
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("screenshots")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${inputMode === "screenshots" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"}`}
+          >
+            Upload screenshots
+          </button>
+        </div>
+
+        {inputMode === "video" ? (
+          <div className="mt-4">
+            <p className="text-xs text-zinc-500">
+              Select an MP4, MOV, or WEBM clip. 10 frames will be extracted automatically — works best on clips up to ~5 minutes.
+            </p>
+            <input
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm,video/*"
+              onChange={(e) => handleVideoFile(e.target.files?.[0] ?? null)}
+              className="mt-3 block w-full text-sm text-zinc-700 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
+            />
+            {isExtractingFrames && (
+              <p className="mt-3 text-sm text-zinc-500">
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700 mr-2 align-middle" />
+                Extracting frames from video...
+              </p>
+            )}
+            {videoFileName && !isExtractingFrames && images.length > 0 && (
+              <p className="mt-3 text-xs text-zinc-500">
+                {images.length} frames extracted from <span className="font-medium text-zinc-700">{videoFileName}</span>. Remove any that aren't useful.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <p className="text-xs text-zinc-500">
+              Take screenshots of key moments from each clip in Premiere. Up to 12 thumbnails.
+            </p>
+            <input
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              onChange={(e) => handleImageFiles(e.target.files)}
+              className="mt-3 block w-full text-sm text-zinc-700 file:mr-4 file:rounded-md file:border-0 file:bg-zinc-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-700"
+            />
+          </div>
+        )}
 
         {images.length > 0 && (
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
@@ -271,17 +401,19 @@ export default function EditPlanForm() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={img.previewUrl}
-                  alt={`Thumbnail ${i + 1}`}
+                  alt={`Frame ${i + 1}`}
                   className="aspect-video w-full rounded-md border border-zinc-200 object-cover"
                 />
                 <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white">
-                  {i + 1}
+                  {videoTimestamps[i] !== undefined
+                    ? formatTimestamp(videoTimestamps[i])
+                    : i + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
                   className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white hover:bg-black"
-                  aria-label={`Remove thumbnail ${i + 1}`}
+                  aria-label={`Remove frame ${i + 1}`}
                 >
                   ×
                 </button>
@@ -369,7 +501,7 @@ export default function EditPlanForm() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isPending || images.length === 0 || !brief.trim()}
+          disabled={isPending || images.length === 0 || !brief.trim() || isExtractingFrames}
           className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Generating plan..." : "Generate plan"}

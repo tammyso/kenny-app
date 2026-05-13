@@ -120,9 +120,13 @@ const displayDate = (value: string | null) => {
 export default function InquiryRow({
   inquiry,
   events,
+  linkedInvoice = null,
+  messageCount = 0,
 }: {
   inquiry: InquiryRowData;
   events: DayEvent[] | null;
+  linkedInvoice?: { id: string; total: number; status: string } | null;
+  messageCount?: number;
 }) {
   const isReady = inquiry.draft_status === "ready_to_send";
   const isSent = inquiry.draft_status === "sent";
@@ -311,6 +315,16 @@ export default function InquiryRow({
                 })}
               </span>
             )}
+            {messageCount > 0 && (
+              <a
+                href={`/project/${inquiry.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-fit items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 underline-offset-2 hover:underline"
+              >
+                {messageCount} {messageCount === 1 ? "message" : "messages"}
+              </a>
+            )}
           </div>
         </td>
         <td className="hidden px-4 py-3 text-zinc-700 lg:table-cell">{inquiry.client_email}</td>
@@ -372,7 +386,7 @@ export default function InquiryRow({
         <td className="px-4 py-3 text-zinc-700">
           <div className="flex flex-col gap-1">
             <span>{inquiry.status || "new"}</span>
-            {isBooked && !inquiry.stripe_invoice_id && (
+            {isBooked && !linkedInvoice && !inquiry.stripe_invoice_id && (
               <a
                 href={`/invoices/new?client_name=${encodeURIComponent(inquiry.client_name)}&client_email=${encodeURIComponent(inquiry.client_email)}&event_date=${encodeURIComponent(inquiry.event_date ?? "")}&inquiry_id=${encodeURIComponent(inquiry.id)}`}
                 className="inline-flex w-fit items-center rounded-md border border-zinc-300 bg-white px-2 py-0.5 text-xs font-medium text-zinc-800 transition hover:bg-zinc-50"
@@ -380,7 +394,17 @@ export default function InquiryRow({
                 Create invoice →
               </a>
             )}
-            {inquiry.stripe_invoice_id && (
+            {linkedInvoice && (
+              <div className="text-xs">
+                <a
+                  href={`/invoices/${linkedInvoice.id}`}
+                  className="font-medium text-blue-700 underline-offset-2 hover:underline"
+                >
+                  ${(linkedInvoice.total / 100).toFixed(0)} · {linkedInvoice.status.replace(/_/g, " ")}
+                </a>
+              </div>
+            )}
+            {inquiry.stripe_invoice_id && !linkedInvoice && (
               <div className="flex flex-col gap-0.5 text-xs">
                 <a
                   href={inquiry.stripe_hosted_url ?? "#"}
@@ -568,6 +592,25 @@ export default function InquiryRow({
                   >
                     {inquiry.deliverable_url}
                   </a>
+                </div>
+              )}
+
+              {messageCount > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Client messages
+                  </p>
+                  <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-900">
+                    {messageCount} {messageCount === 1 ? "message" : "messages"} from {inquiry.client_name}.{" "}
+                    <a
+                      href={`/project/${inquiry.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium underline-offset-2 hover:underline"
+                    >
+                      View in project room →
+                    </a>
+                  </div>
                 </div>
               )}
 

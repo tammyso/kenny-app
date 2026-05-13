@@ -106,6 +106,14 @@ export default async function InvoiceDetailPage({
             </div>
           </div>
           <div className="flex gap-2">
+            {invoice.status === "draft" && (
+              <Link
+                href={`/invoices/${invoice.id}/edit`}
+                className="inline-flex h-9 items-center rounded-lg border border-zinc-200 px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+              >
+                Edit
+              </Link>
+            )}
             <Link
               href={`/invoices/${invoice.id}/print`}
               target="_blank"

@@ -113,15 +113,42 @@ export default async function Home({
   const inquiries: InquiryRowData[] = data ?? [];
 
   // Stats reflect every inquiry + invoice (including archived).
-  const [{ data: allInquiriesForStats }, { data: allInvoicesForStats }] =
-    await Promise.all([
-      supabase
-        .from("inquiries")
-        .select("id, created_at, project_type, invoice_amount_cents, invoice_status, invoice_sent_at"),
-      supabase
-        .from("invoices")
-        .select("total, status, sent_at"),
-    ]);
+  const [
+    { data: allInquiriesForStats },
+    { data: allInvoicesForStats },
+    { data: linkedInvoicesRaw },
+    { data: allProjectMessages },
+  ] = await Promise.all([
+    supabase
+      .from("inquiries")
+      .select("id, created_at, project_type, invoice_amount_cents, invoice_status, invoice_sent_at"),
+    supabase
+      .from("invoices")
+      .select("total, status, sent_at"),
+    supabase
+      .from("invoices")
+      .select("id, inquiry_id, total, status")
+      .not("inquiry_id", "is", null),
+    supabase
+      .from("project_messages")
+      .select("inquiry_id"),
+  ]);
+
+  // Map inquiry_id -> most-recently-created linked invoice (first insert wins since
+  // we don't order here, but duplicates are prevented by the UI fix below).
+  const linkedInvoiceByInquiryId = new Map<string, { id: string; total: number; status: string }>();
+  for (const inv of linkedInvoicesRaw ?? []) {
+    if (inv.inquiry_id && !linkedInvoiceByInquiryId.has(inv.inquiry_id)) {
+      linkedInvoiceByInquiryId.set(inv.inquiry_id, { id: inv.id, total: inv.total, status: inv.status });
+    }
+  }
+
+  const messageCountByInquiryId = new Map<string, number>();
+  for (const msg of allProjectMessages ?? []) {
+    if (msg.inquiry_id) {
+      messageCountByInquiryId.set(msg.inquiry_id, (messageCountByInquiryId.get(msg.inquiry_id) ?? 0) + 1);
+    }
+  }
   const stats = computeDashboardStats(
     (allInquiriesForStats ?? []) as InquiryRowData[],
     (allInvoicesForStats ?? []) as InvoiceStatRow[],
@@ -288,6 +315,8 @@ export default async function Home({
                         ? eventsByDate.get(inquiry.event_date) ?? null
                         : null
                     }
+                    linkedInvoice={linkedInvoiceByInquiryId.get(inquiry.id) ?? null}
+                    messageCount={messageCountByInquiryId.get(inquiry.id) ?? 0}
                   />
                 ))
               )}
