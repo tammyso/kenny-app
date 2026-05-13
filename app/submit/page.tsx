@@ -177,16 +177,7 @@ export default function SubmitInquiryPage() {
         <PublicNav />
 
         <div className="mb-14 max-w-2xl">
-          <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
-            Videographer
-          </p>
-          <h1
-            className="mt-3 text-6xl font-normal italic text-zinc-50 sm:text-7xl"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Kenny
-          </h1>
-          <p className="mt-5 text-lg text-zinc-300">
+          <p className="mt-2 text-lg text-zinc-300">
             Brand films, weddings, music videos, and events. I work with a small
             roster of clients on retainers and one-offs that lean into story
             over polish.

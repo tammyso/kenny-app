@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { KENNY_PROFILE } from "@/lib/profile";
 import { MailIcon, SocialIcon } from "./social-icon";
@@ -16,7 +17,28 @@ export default function PublicNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="mb-12 flex items-center justify-end gap-5 text-sm">
+    <nav className="mb-12 flex items-center justify-between gap-5 text-sm">
+      <Link href="/submit" className="flex items-center gap-4" aria-label="Oak One Eight Visualz — home">
+        <Image
+          src="/logo.png"
+          alt="Oak One Eight Visualz"
+          width={200}
+          height={200}
+          className="opacity-90 hover:opacity-100"
+        />
+        <div>
+          <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
+            Videographer
+          </p>
+          <p
+            className="text-5xl font-normal italic text-zinc-50"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Kenny
+          </p>
+        </div>
+      </Link>
+      <div className="flex items-center gap-5">
       {NAV_LINKS.map((link) => (
         <Link
           key={link.href}
@@ -52,6 +74,7 @@ export default function PublicNav() {
             <SocialIcon kind={social.kind} />
           </a>
         ))}
+      </div>
       </div>
     </nav>
   );
