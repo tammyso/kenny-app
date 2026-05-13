@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { KENNY_PROFILE } from "@/lib/profile";
-import { MailIcon, SocialIcon } from "../social-icon";
+import PublicNav from "../public-nav";
 
 export const metadata: Metadata = {
   title: "About",
@@ -43,37 +43,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-zinc-950">
       <main className="mx-auto w-full max-w-3xl px-6 py-16">
-        <nav className="mb-12 flex items-center justify-end gap-5 text-sm">
-          <Link
-            href="/submit"
-            className="text-zinc-300 underline-offset-2 hover:text-zinc-50 hover:underline"
-          >
-            Work + contact
-          </Link>
-          <span className="text-zinc-50">About</span>
-          <span aria-hidden className="h-4 w-px bg-zinc-700" />
-          <div className="flex items-center gap-3 text-zinc-300">
-            <a
-              href={`mailto:${KENNY_PROFILE.email}`}
-              aria-label={`Email ${KENNY_PROFILE.email}`}
-              className="transition hover:text-zinc-100"
-            >
-              <MailIcon />
-            </a>
-            {KENNY_PROFILE.socials.map((social) => (
-              <a
-                key={social.href}
-                href={social.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={social.label}
-                className="transition hover:text-zinc-100"
-              >
-                <SocialIcon kind={social.kind} />
-              </a>
-            ))}
-          </div>
-        </nav>
+        <PublicNav />
 
         <div className="mb-12 max-w-2xl">
           <p className="text-sm font-medium uppercase tracking-wider text-zinc-500">
